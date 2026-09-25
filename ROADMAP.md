@@ -169,6 +169,8 @@ Generate a shareable link — prospects fill a form and land directly in your pi
 
 | Task | Priority | Effort |
 |---|---|---|
+| Expand Profile section (settings, security, billing) | High | 4h |
+| Add Sales Blog / Industry News widget to Dashboard | Medium | 4h |
 | Make global search bar (top nav) functional | High | 3h |
 | Implement in-app notification center | High | 6h |
 | Add pagination to leads/contacts list | High | 2h |
