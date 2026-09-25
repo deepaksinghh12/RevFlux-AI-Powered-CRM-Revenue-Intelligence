@@ -41,7 +41,7 @@ function RailLink({ to, label, icon: Icon, end }) {
     >
       <Icon className="h-5 w-5" />
       {/* Tooltip on hover */}
-      <span className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-white opacity-0 transition group-hover:opacity-100 lg:block">
+      <span className="pointer-events-none absolute left-full ml-3 z-50 hidden whitespace-nowrap rounded-lg bg-ink px-2.5 py-1 text-xs font-medium text-white opacity-0 transition group-hover:opacity-100 lg:block">
         {label}
       </span>
     </NavLink>
