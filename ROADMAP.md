@@ -169,6 +169,8 @@ Generate a shareable link — prospects fill a form and land directly in your pi
 
 | Task | Priority | Effort |
 |---|---|---|
+| Make global search bar (top nav) functional | High | 3h |
+| Implement in-app notification center | High | 6h |
 | Add pagination to leads/contacts list | High | 2h |
 | Rate limiting on AI endpoints (`express-rate-limit`) | High | 1h |
 | Input validation with `zod` on all routes | Medium | 3h |
