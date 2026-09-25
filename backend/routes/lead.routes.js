@@ -1,0 +1,31 @@
+import { Router } from "express";
+import {
+  getLeads,
+  getLead,
+  createLead,
+  updateLead,
+  deleteLead,
+  reorderLeads,
+} from "../controllers/lead.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
+
+const router = Router();
+
+// All lead routes require authentication
+router.use(protect);
+
+router.route("/")
+  .get(getLeads)
+  .post(createLead);
+
+// Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
+router.patch("/reorder", reorderLeads);
+router.put("/reorder", reorderLeads);
+
+router.route("/:id")
+  .get(getLead)
+  .put(updateLead)
+  .patch(updateLead)
+  .delete(deleteLead);
+
+export default router;
