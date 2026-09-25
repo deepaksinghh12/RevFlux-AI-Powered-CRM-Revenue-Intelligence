@@ -40,9 +40,7 @@ export function AppLayout() {
           <TopNav onMenuClick={() => setMobileOpen(true)} />
         </div>
         <main className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
     </div>
