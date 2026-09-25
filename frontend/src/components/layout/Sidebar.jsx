@@ -33,7 +33,7 @@ export function Sidebar({ onNavigate }) {
         <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
           <Sparkles className="h-5 w-5" />
         </div>
-        <span className="font-display text-lg font-bold text-ink">TTP CRM</span>
+        <span className="font-display text-lg font-bold text-ink">RevFlux</span>
       </div>
 
       {/* Nav links */}

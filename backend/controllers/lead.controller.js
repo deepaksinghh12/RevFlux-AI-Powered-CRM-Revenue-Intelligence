@@ -3,6 +3,7 @@ import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
+import { Resend } from "resend";
 
 // ===============================
 // GET ALL LEADS
@@ -262,3 +263,67 @@ export const reorderLeads = asyncHandler(async (req, res) => {
 
 // Alias for singular / plural compatibility
 export const reorderLead = reorderLeads;
+
+// ===============================
+// SEND EMAIL TO LEAD (via Resend)
+// ===============================
+
+export const sendLeadEmail = asyncHandler(async (req, res) => {
+  const { subject, body } = req.body;
+
+  if (!subject || !body) {
+    throw new ApiError(400, "Subject and body are required to send an email.");
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new ApiError(
+      503,
+      "Resend API key is not configured. Add RESEND_API_KEY to your backend .env file."
+    );
+  }
+
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+
+  if (!lead) {
+    throw new ApiError(404, "Lead not found");
+  }
+
+  if (!lead.email) {
+    throw new ApiError(400, "This lead does not have an email address.");
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  try {
+    // Resend requires a verified domain to send FROM.
+    // For testing/free tiers, you often use onboarding@resend.dev which only allows sending TO your own registered email.
+    // We will use Acme <onboarding@resend.dev> as the default for the free tier.
+    const { data, error } = await resend.emails.send({
+      from: "CRM Dashboard <onboarding@resend.dev>",
+      to: [lead.email],
+      subject: subject,
+      html: body.replace(/\n/g, "<br>"), // Basic conversion of plain text draft to HTML
+    });
+
+    if (error) {
+      console.error("Resend Error:", error);
+      throw new ApiError(500, error.message || "Failed to send email");
+    }
+
+    // Optional: Auto-create a Note that the email was sent
+    await Note.create({
+      owner: req.user._id,
+      relatedLead: lead._id,
+      content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
+    });
+
+    res.json({
+      success: true,
+      message: "Email sent successfully",
+      data,
+    });
+  } catch (err) {
+    console.error("Email send error:", err);
+    throw new ApiError(500, err.message || "Failed to send email via Resend");
+  }
+});

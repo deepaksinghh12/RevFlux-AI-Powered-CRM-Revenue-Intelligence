@@ -16,6 +16,7 @@ export const leadsApi = {
   update: (id, data) => api.put(`/leads/${id}`, data),
   remove: (id) => api.delete(`/leads/${id}`),
   reorder: (updates) => api.patch("/leads/reorder", { updates }),
+  sendEmail: (id, data) => api.post(`/leads/${id}/send-email`, data),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */

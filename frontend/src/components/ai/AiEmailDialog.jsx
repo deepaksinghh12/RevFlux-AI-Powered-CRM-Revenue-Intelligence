@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sparkles, Copy, Check, Wand2 } from "lucide-react";
 import { Dialog, Button, Field, Select, Textarea, Spinner } from "../ui";
-import { aiApi } from "../../lib/services";
+import { aiApi, leadsApi } from "../../lib/services";
 import { toast } from "sonner";
 
 /**
@@ -14,6 +14,7 @@ export function AiEmailDialog({ open, onClose, lead }) {
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const generate = async () => {
     setLoading(true);
@@ -32,6 +33,19 @@ export function AiEmailDialog({ open, onClose, lead }) {
     setCopied(true);
     toast.success("Email copied to clipboard");
     setTimeout(() => setCopied(false), 1800);
+  };
+
+  const sendEmail = async () => {
+    setSending(true);
+    try {
+      await leadsApi.sendEmail(lead._id, draft);
+      toast.success("Email sent successfully!");
+      onClose(); // Close dialog on success
+    } catch (err) {
+      toast.error(err.message || "Failed to send email");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -91,6 +105,9 @@ export function AiEmailDialog({ open, onClose, lead }) {
             <Button variant="outline" onClick={copy}>
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Copy"}
+            </Button>
+            <Button onClick={sendEmail} loading={sending}>
+              Send Email
             </Button>
           </div>
         </div>

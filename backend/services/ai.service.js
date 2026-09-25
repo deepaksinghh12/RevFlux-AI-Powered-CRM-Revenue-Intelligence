@@ -21,7 +21,7 @@ const getClient = () => {
       baseURL: "https://openrouter.ai/api/v1",
       defaultHeaders: {
         "HTTP-Referer": "http://localhost:5173",
-        "X-Title": "TTP CRM Dashboard",
+        "X-Title": "RevFlux CRM",
       },
     });
   }

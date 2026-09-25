@@ -1,7 +1,7 @@
 {
-  "name": "ttp-crm-backend",
+  "name": "revflux-backend",
   "version": "1.0.0",
-  "description": "TTP CRM - AI-powered SaaS CRM backend (Express + MongoDB + Gemini)",
+  "description": "RevFlux - AI-Powered CRM & Revenue Intelligence Platform",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -28,7 +28,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.1",
     "morgan": "^1.10.0",
-    "openai": "^7.23.0"
+    "openai": "^7.23.0",
+    "resend": "^6.30.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
