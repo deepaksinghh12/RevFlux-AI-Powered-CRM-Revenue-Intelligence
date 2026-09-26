@@ -27,6 +27,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { LeadFormDialog } from "../components/leads/LeadFormDialog";
 import { LeadDrawer } from "../components/leads/LeadDrawer";
+import { CsvImportDialog } from "../components/leads/CsvImportDialog";
 import {
   Card,
   Button,
@@ -64,6 +65,7 @@ export default function Leads() {
   const [drawerLead, setDrawerLead] = useState(null);
   const [toDelete, setToDelete] = useState(null); // single lead
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const load = () => {
@@ -252,45 +254,7 @@ export default function Leads() {
   };
 
   const importCSV = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".csv";
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      toast.loading("Importing leads...", { id: "import" });
-      
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          try {
-            // Map the parsed CSV objects to our Lead schema
-            const leadsToImport = results.data.map(row => ({
-              name: row.Name || row.name || "Unknown Lead",
-              company: row.Company || row.company || "",
-              email: row.Email || row.email || "",
-              phone: row.Phone || row.phone || "",
-              status: row.Stage || row.status || "New",
-              priority: row.Priority || row.priority || "Medium",
-              source: row.Source || row.source || "Other",
-              value: Number(row.Value || row.value) || 0,
-            }));
-
-            const res = await leadsApi.bulkCreate({ leads: leadsToImport });
-            toast.success(res.message, { id: "import" });
-            load(); // Refresh table
-          } catch (err) {
-            toast.error(err.message || "Failed to import leads", { id: "import" });
-          }
-        },
-        error: (err) => {
-          toast.error("Failed to parse CSV file", { id: "import" });
-        }
-      });
-    };
-    input.click();
+    setCsvOpen(true);
   };
 
   const copyCaptureLink = () => {
@@ -622,6 +586,11 @@ export default function Leads() {
         loading={deleting}
         title={`Delete ${selected.size} leads?`}
         description="These leads will be permanently removed. This can't be undone."
+      />
+      <CsvImportDialog
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onImportComplete={load}
       />
     </div>
   );

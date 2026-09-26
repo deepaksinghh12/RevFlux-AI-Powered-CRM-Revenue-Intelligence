@@ -420,26 +420,54 @@ export const importLeads = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide an array of leads to import.");
   }
 
-  // Ensure every imported lead belongs to the user
-  // and has defaults if missing
-  const leadsToInsert = leads.map((lead) => ({
-    owner: req.user._id,
-    name: lead.name || "Unknown Lead",
-    company: lead.company || "",
-    email: lead.email || "",
-    phone: lead.phone || "",
-    status: LEAD_STATUSES.includes(lead.status) ? lead.status : "New",
-    priority: LEAD_PRIORITIES.includes(lead.priority) ? lead.priority : "Medium",
-    value: Number(lead.value) || 0,
-    source: lead.source || "Other",
-  }));
+  // Fetch existing emails for this owner to prevent duplicate ingestion
+  const existingLeads = await Lead.find({ owner: req.user._id, email: { $ne: "" } }).select("email");
+  const existingEmailSet = new Set(existingLeads.map((l) => l.email.toLowerCase()));
 
-  const inserted = await Lead.insertMany(leadsToInsert);
+  const validToInsert = [];
+  let skippedCount = 0;
+
+  for (const item of leads) {
+    const name = item.name ? item.name.trim() : "";
+    const email = item.email ? item.email.trim().toLowerCase() : "";
+
+    if (!name) {
+      skippedCount++;
+      continue;
+    }
+
+    // Check duplicate email
+    if (email && existingEmailSet.has(email)) {
+      skippedCount++;
+      continue;
+    }
+
+    if (email) existingEmailSet.add(email);
+
+    validToInsert.push({
+      owner: req.user._id,
+      name: name || "Unknown Lead",
+      company: item.company ? item.company.trim() : "",
+      email: email,
+      phone: item.phone ? item.phone.trim() : "",
+      status: LEAD_STATUSES.includes(item.status) ? item.status : "New",
+      priority: LEAD_PRIORITIES.includes(item.priority) ? item.priority : "Medium",
+      value: Number(item.value) || 0,
+      source: item.source || "Website",
+    });
+  }
+
+  let inserted = [];
+  if (validToInsert.length > 0) {
+    inserted = await Lead.insertMany(validToInsert, { ordered: false });
+  }
 
   res.status(201).json({
     success: true,
     count: inserted.length,
-    message: `Successfully imported ${inserted.length} leads.`,
+    importedCount: inserted.length,
+    skippedCount,
+    message: `Successfully imported ${inserted.length} leads (${skippedCount} duplicates/invalid rows skipped).`,
   });
 });
 
