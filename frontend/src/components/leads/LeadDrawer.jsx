@@ -10,9 +10,11 @@ import {
   AlertCircle,
   Upload,
   Paperclip,
+  Calendar,
 } from "lucide-react";
 import { Drawer, Button, Badge, Avatar, Spinner } from "../ui";
 import { AiEmailDialog } from "../ai/AiEmailDialog";
+import { TaskScheduleDialog } from "./TaskScheduleDialog";
 import { aiApi, leadsApi } from "../../lib/services";
 import { currency, shortDate } from "../../lib/format";
 import { STAGE_STYLES, PRIORITY_STYLES } from "../../lib/constants";
@@ -24,6 +26,7 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete, onUpdate }) 
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   if (!lead) return null;
@@ -227,6 +230,9 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete, onUpdate }) 
           <Button variant="outline" onClick={() => setEmailOpen(true)} className="col-span-2">
             <Wand2 className="h-4 w-4" /> Generate AI email
           </Button>
+          <Button variant="outline" onClick={() => setScheduleOpen(true)} className="col-span-2">
+            <Calendar className="h-4 w-4" /> Schedule Follow-up
+          </Button>
           <Button variant="secondary" onClick={() => onEdit(lead)}>
             <Pencil className="h-4 w-4" /> Edit
           </Button>
@@ -241,6 +247,7 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete, onUpdate }) 
       </Drawer>
 
       <AiEmailDialog open={emailOpen} onClose={() => setEmailOpen(false)} lead={lead} />
+      <TaskScheduleDialog open={scheduleOpen} onClose={() => setScheduleOpen(false)} lead={lead} />
     </>
   );
 }
