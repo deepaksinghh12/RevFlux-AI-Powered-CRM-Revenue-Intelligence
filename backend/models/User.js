@@ -42,6 +42,28 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    plan: {
+      type: String,
+      enum: ["free", "starter", "growth", "business"],
+      default: "free",
+    },
+
+    subscriptionStatus: {
+      type: String,
+      enum: ["active", "trialing", "canceled"],
+      default: "trialing",
+    },
+
+    leadLimit: {
+      type: Number,
+      default: 50,
+    },
+
+    aiCallCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

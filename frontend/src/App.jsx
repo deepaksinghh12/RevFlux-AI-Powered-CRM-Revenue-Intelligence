@@ -19,32 +19,19 @@ import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import { useAuth } from "./context/AuthContext";
 
-function HomeRoute() {
-  const { user } = useAuth();
-  if (user) {
-    return (
-      <AppLayout>
-        <Dashboard />
-      </AppLayout>
-    );
-  }
-  return <Landing />;
-}
-
-/* Central route table. Auth routes are public; everything else is wrapped in
-   the authenticated AppLayout behind <ProtectedRoute>. */
 export default function App() {
+  const { user } = useAuth();
+
   return (
     <Routes>
-      {/* Public Home & Marketing */}
-      <Route path="/" element={<HomeRoute />} />
+      {/* Public Pages */}
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/forms/:ownerId" element={<PublicCaptureForm />} />
 
-      {/* Private (Stand-alone pages without full AppLayout shell) */}
+      {/* Stand-alone Onboarding Wizard */}
       <Route
         path="/onboarding"
         element={
@@ -54,22 +41,28 @@ export default function App() {
         }
       />
 
-      {/* Private (Main Workspace Shell) */}
+      {/* Root Route: If logged in -> Dashboard inside AppLayout, if not -> Landing page */}
       <Route
+        path="/"
         element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
+          user ? (
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          ) : (
+            <Landing />
+          )
         }
       >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/leads" element={<Leads />} />
-        <Route path="/leads/:id" element={<LeadDetail />} />
-        <Route path="/contacts" element={<Contacts />} />
-        <Route path="/pipeline" element={<Pipeline />} />
-        <Route path="/notes" element={<Notes />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route index element={<Dashboard />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="leads" element={<Leads />} />
+        <Route path="leads/:id" element={<LeadDetail />} />
+        <Route path="contacts" element={<Contacts />} />
+        <Route path="pipeline" element={<Pipeline />} />
+        <Route path="notes" element={<Notes />} />
+        <Route path="tasks" element={<Tasks />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Fallback */}

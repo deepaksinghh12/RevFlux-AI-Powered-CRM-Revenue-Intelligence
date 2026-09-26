@@ -10,6 +10,7 @@ import {
   Shield,
   Mail,
   KeyRound,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -27,9 +28,10 @@ import {
 } from "../components/ui";
 import { PageHeader } from "../components/common/PageHeader";
 import { useAuth } from "../context/AuthContext";
-import { authApi, aiApi } from "../lib/services";
+import { authApi, aiApi, leadsApi } from "../lib/services";
 import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
+import { SubscriptionModal } from "../components/billing/SubscriptionModal";
 
 /* ── Small icon accent rendered beside each card title ─────────── */
 function SectionIcon({ icon: Icon, className }) {
@@ -369,6 +371,154 @@ function AccountCard({ user, logout }) {
   );
 }
 
+/* ── Workspace & Onboarding Card ──────────────────────────────── */
+function WorkspaceCard() {
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    try {
+      await authApi.seedDemo();
+      toast.success("Sample workspace data seeded successfully!");
+      window.location.reload();
+    } catch (err) {
+      toast.error(err?.message || "Failed to seed sample data");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <SectionIcon icon={Sparkles} />
+          <div>
+            <CardTitle>Workspace & Data Reset</CardTitle>
+            <CardDescription>Re-run onboarding wizard or re-seed sample workspace data.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-4">
+          <div>
+            <p className="text-sm font-bold text-ink">Guided Onboarding Wizard</p>
+            <p className="text-xs text-ink-soft">Re-run the 3-step setup wizard to configure your company profile.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = "/onboarding"}>
+            Run Onboarding
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-4">
+          <div>
+            <p className="text-sm font-bold text-ink">Seed Sample Deals</p>
+            <p className="text-xs text-ink-soft">Populate your workspace with 8 sample deals and tasks in 1 click.</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={handleSeedDemo} disabled={seeding}>
+            {seeding && <Spinner size="sm" />}
+            Seed Sample Data
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Billing & Plan Card ────────────────────────────────────────── */
+function BillingCard({ user }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [leadCount, setLeadCount] = useState(0);
+
+  useEffect(() => {
+    leadsApi
+      .list({ limit: 1 })
+      .then((res) => {
+        if (res?.pagination?.total !== undefined) {
+          setLeadCount(res.pagination.total);
+        } else if (Array.isArray(res?.data)) {
+          setLeadCount(res.data.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const plan = user?.plan || "free";
+  const limit = user?.leadLimit || (plan === "free" ? 50 : plan === "growth" ? 500 : 10000);
+  const usagePct = Math.min(100, Math.round((leadCount / limit) * 100));
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <SectionIcon icon={CreditCard} />
+            <div>
+              <CardTitle>Subscription & Billing</CardTitle>
+              <CardDescription>
+                Manage your subscription plan, usage limits, and billing details.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-5 space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-line bg-surface-muted/50 p-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-display text-base font-bold text-ink capitalize">
+                  {plan} Plan
+                </h4>
+                <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase text-[10px]">
+                  {user?.subscriptionStatus || "Active"}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-ink-soft">
+                {plan === "free"
+                  ? "Basic pipeline tracking up to 50 active leads."
+                  : plan === "growth"
+                  ? "Growth plan with up to 500 active leads and AI features."
+                  : "Unlimited leads, dedicated support, and custom integrations."}
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => setModalOpen(true)} className="shrink-0">
+              Upgrade Plan
+            </Button>
+          </div>
+
+          {/* Lead Usage Bar */}
+          <div className="rounded-2xl border border-line bg-surface p-4 space-y-2">
+            <div className="flex justify-between text-xs font-semibold">
+              <span className="text-ink">Lead Capacity Usage</span>
+              <span className="text-ink-soft">
+                {leadCount} / {limit >= 10000 ? "Unlimited" : limit} Leads ({usagePct}%)
+              </span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-surface-muted overflow-hidden border border-line/50">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  usagePct >= 90
+                    ? "bg-red-500"
+                    : usagePct >= 75
+                    ? "bg-amber-500"
+                    : "bg-brand-600"
+                }`}
+                style={{ width: `${usagePct}%` }}
+              />
+            </div>
+            {usagePct >= 90 && (
+              <p className="text-[11px] text-red-600 font-medium pt-1">
+                ⚠️ You are approaching your plan limit ({leadCount}/{limit}). Upgrade now to prevent lead creation blocks.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <SubscriptionModal open={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
+  );
+}
+
 /* ── Page root ──────────────────────────────────────────────────── */
 export default function Settings() {
   const { user, updateUser, logout } = useAuth();
@@ -377,10 +527,12 @@ export default function Settings() {
     <div className="space-y-6 max-w-3xl">
       <PageHeader
         title="Settings"
-        subtitle="Manage your account and integrations."
+        subtitle="Manage your account, workspace data, and integrations."
       />
 
       <ProfileCard user={user} updateUser={updateUser} />
+      <BillingCard user={user} />
+      <WorkspaceCard />
       <SecurityCard />
       <AiIntegrationCard />
       <AccountCard user={user} logout={logout} />

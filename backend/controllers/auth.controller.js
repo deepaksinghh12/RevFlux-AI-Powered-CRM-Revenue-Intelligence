@@ -19,6 +19,10 @@ const toClientUser = (user) => ({
   role: user.role,
   company: user.company,
   avatar: user.avatar,
+  plan: user.plan || "free",
+  subscriptionStatus: user.subscriptionStatus || "trialing",
+  leadLimit: user.leadLimit ?? 50,
+  aiCallCount: user.aiCallCount ?? 0,
   createdAt: user.createdAt,
 });
 
@@ -259,5 +263,37 @@ export const seedDemoData = asyncHandler(async (req, res) => {
     success: true,
     message: "Sample demo workspace seeded successfully!",
     leadsCount: createdLeads.length,
+  });
+});
+
+// ===============================
+// SUBSCRIBE / UPGRADE PLAN (Task 7.2)
+// ===============================
+export const subscribePlan = asyncHandler(async (req, res) => {
+  const { plan } = req.body;
+
+  const PLAN_LIMITS = {
+    free: 50,
+    starter: 500,
+    growth: 999999,
+    business: 999999,
+  };
+
+  if (!plan || !PLAN_LIMITS[plan]) {
+    throw new ApiError(400, "Invalid subscription plan selected.");
+  }
+
+  const user = await User.findById(req.user._id);
+  if (!user) throw new ApiError(404, "User not found.");
+
+  user.plan = plan;
+  user.subscriptionStatus = "active";
+  user.leadLimit = PLAN_LIMITS[plan];
+  await user.save();
+
+  res.json({
+    success: true,
+    message: `Subscription successfully upgraded to ${plan.toUpperCase()} plan!`,
+    user: toClientUser(user),
   });
 });

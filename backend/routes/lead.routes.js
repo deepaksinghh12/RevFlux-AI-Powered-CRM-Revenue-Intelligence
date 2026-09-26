@@ -14,6 +14,7 @@ import {
 } from "../controllers/lead.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
+import { checkLeadLimit } from "../middleware/plan.middleware.js";
 
 const router = Router();
 
@@ -22,10 +23,10 @@ router.use(protect);
 
 router.route("/")
   .get(getLeads)
-  .post(createLead);
+  .post(checkLeadLimit, createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
-router.post("/bulk", importLeads);
+router.post("/bulk", checkLeadLimit, importLeads);
 router.patch("/reorder", reorderLeads);
 router.put("/reorder", reorderLeads);
 
