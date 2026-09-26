@@ -1,11 +1,11 @@
 import { format, formatDistanceToNow, isValid } from "date-fns";
 
-/** Format a number as compact USD currency, e.g. 78989 -> "$78,989". */
+/** Format a number as compact currency, e.g. 78989 -> "₹78,989". */
 export function currency(value = 0, { compact = false } = {}) {
   const n = Number(value) || 0;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     notation: compact ? "compact" : "standard",
     maximumFractionDigits: compact ? 1 : 0,
   }).format(n);
