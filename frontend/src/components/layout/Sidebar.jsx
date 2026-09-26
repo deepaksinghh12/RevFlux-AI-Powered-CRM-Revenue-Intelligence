@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import {
   LayoutGrid,
   Users,
@@ -29,12 +29,12 @@ export function Sidebar({ onNavigate }) {
   return (
     <aside className="flex h-full w-64 flex-col bg-surface border-r border-line">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 px-6 py-6">
+      <Link to="/" className="flex items-center gap-2.5 px-6 py-6 transition hover:opacity-85">
         <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
           <Sparkles className="h-5 w-5" />
         </div>
         <span className="font-display text-lg font-bold text-ink">RevFlux</span>
-      </div>
+      </Link>
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1 px-3">

@@ -294,7 +294,11 @@ export default function Leads() {
   };
 
   const copyCaptureLink = () => {
-    const url = `${window.location.origin}/forms/${user._id}`;
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      return toast.error("Could not find user ID for share link.");
+    }
+    const url = `${window.location.origin}/forms/${userId}`;
     navigator.clipboard.writeText(url);
     toast.success("Lead capture link copied to clipboard!");
   };

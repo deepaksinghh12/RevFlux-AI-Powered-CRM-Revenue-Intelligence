@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import User from "../models/User.js";
 import Lead from "../models/Lead.js";
@@ -10,10 +11,15 @@ export const captureLead = asyncHandler(async (req, res) => {
   const { ownerId } = req.params;
   const { name, email, phone, company, notes } = req.body;
 
+  // Validate ownerId format
+  if (!ownerId || ownerId === "undefined" || !mongoose.Types.ObjectId.isValid(ownerId)) {
+    return res.status(400).json({ success: false, message: "Invalid or incomplete form link." });
+  }
+
   // Validate owner exists
   const owner = await User.findById(ownerId);
   if (!owner) {
-    return res.status(404).json({ success: false, message: "Invalid form link." });
+    return res.status(404).json({ success: false, message: "Form link owner not found." });
   }
 
   if (!name || !email) {

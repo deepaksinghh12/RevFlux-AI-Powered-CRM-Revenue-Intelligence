@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import { Search, Bell, Menu, ChevronDown, User, LogOut, Sparkles } from "lucide-react";
 import {
   Avatar,
@@ -30,14 +30,14 @@ export function TopNav({ onMenuClick }) {
   return (
     <header className="flex items-center gap-3">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 pr-2">
+      <Link to="/" className="flex items-center gap-2.5 pr-2 transition hover:opacity-85">
         <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
           <Sparkles className="h-5 w-5" />
         </div>
         <span className="hidden font-display text-lg font-bold text-ink sm:block">
           RevFlux
         </span>
-      </div>
+      </Link>
 
       {/* Mobile menu toggle */}
       <button
