@@ -1,4 +1,5 @@
 import Lead from "../models/Lead.js";
+import { Task } from "../models/Task.js";
 import {
   isAIConfigured,
   generateLeadSummary,

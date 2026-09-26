@@ -8,6 +8,7 @@ export const authApi = {
   me: () => api.get("/auth/me"),
   updateProfile: (data) => api.put("/auth/profile", data),
   seedDemo: () => api.post("/auth/seed-demo"),
+  createRazorpayOrder: (data) => api.post("/auth/create-razorpay-order", data),
   subscribe: (data) => api.post("/auth/subscribe", data),
 };
 

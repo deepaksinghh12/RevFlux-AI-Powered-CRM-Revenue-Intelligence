@@ -8,6 +8,7 @@ import {
   updateProfile,
   seedDemoData,
   subscribePlan,
+  createRazorpayOrder,
 } from "../controllers/auth.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -24,6 +25,7 @@ router.post("/google", authRateLimiter, googleLogin);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.post("/seed-demo", protect, seedDemoData);
+router.post("/create-razorpay-order", protect, createRazorpayOrder);
 router.post("/subscribe", protect, validateBody(authSchemas.subscribe), subscribePlan);
 
 export default router;

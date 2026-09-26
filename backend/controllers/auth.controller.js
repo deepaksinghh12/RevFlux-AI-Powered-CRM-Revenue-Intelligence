@@ -7,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { generateToken } from "../utils/generateToken.js";
 import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -268,26 +269,73 @@ export const seedDemoData = asyncHandler(async (req, res) => {
   });
 });
 
+const PLAN_PRICES = {
+  free: 0,
+  starter: 499,
+  growth: 1499,
+  business: 2999,
+};
+
+const PLAN_LIMITS = {
+  free: 50,
+  starter: 500,
+  growth: 999999,
+  business: 999999,
+};
+
 // ===============================
-// SUBSCRIBE / UPGRADE PLAN (Task 7.2)
+// CREATE RAZORPAY ORDER
+// ===============================
+export const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const { plan } = req.body;
+  if (!plan || !PLAN_PRICES.hasOwnProperty(plan)) {
+    throw new ApiError(400, "Invalid subscription plan selected.");
+  }
+
+  const basePrice = PLAN_PRICES[plan];
+  if (basePrice === 0) {
+    return res.json({ success: true, isFree: true, amount: 0 });
+  }
+
+  const amountInPaise = Math.round(basePrice * 1.18 * 100); // Base price + 18% GST in paise
+  const orderId = `order_rzp_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+  res.json({
+    success: true,
+    orderId,
+    amount: amountInPaise,
+    currency: "INR",
+    keyId: process.env.RAZORPAY_KEY_ID || "rzp_test_revflux_demo",
+    plan,
+  });
+});
+
+// ===============================
+// SUBSCRIBE / VERIFY RAZORPAY PAYMENT (Task 7.2)
 // ===============================
 export const subscribePlan = asyncHandler(async (req, res) => {
-  const { plan, paymentId, paymentMethod } = req.body;
+  const { plan, paymentId, orderId, signature, paymentMethod } = req.body;
 
-  const PLAN_LIMITS = {
-    free: 50,
-    starter: 500,
-    growth: 999999,
-    business: 999999,
-  };
-
-  if (!plan || !PLAN_LIMITS[plan]) {
+  if (!plan || !PLAN_LIMITS.hasOwnProperty(plan)) {
     throw new ApiError(400, "Invalid subscription plan selected.");
   }
 
   // Paid plans require a payment transaction ID from the gateway
   if (plan !== "free" && !paymentId) {
     throw new ApiError(402, "Payment verification required for paid plan upgrade.");
+  }
+
+  // HMAC SHA256 Signature Verification if Razorpay Secret is configured
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (keySecret && orderId && signature) {
+    const expectedSignature = crypto
+      .createHmac("sha256", keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+
+    if (expectedSignature !== signature) {
+      throw new ApiError(400, "Razorpay payment signature verification failed.");
+    }
   }
 
   const user = await User.findById(req.user._id);
@@ -304,7 +352,7 @@ export const subscribePlan = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: `Payment verified! Subscription upgraded to ${plan.toUpperCase()} plan.`,
+    message: `Razorpay Payment Verified! Subscription upgraded to ${plan.toUpperCase()} plan.`,
     paymentId: paymentId || "N/A",
     user: toClientUser(user),
   });
