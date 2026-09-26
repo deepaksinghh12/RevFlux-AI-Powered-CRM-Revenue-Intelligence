@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { User } from "../models/User.js";
+import User from "../models/User.js";
 import Lead from "../models/Lead.js";
 import { getIO } from "../utils/socket.js";
 

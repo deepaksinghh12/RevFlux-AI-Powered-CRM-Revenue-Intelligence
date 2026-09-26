@@ -123,12 +123,16 @@ ${JSON.stringify(lead, null, 2)}
 /**
  * Generate a personalised outreach email draft for a lead.
  */
-export const generateEmail = async ({ lead, tone = "professional", goal = "follow-up" }) => {
+export const generateEmail = async (lead, purpose = "follow-up", tone = "professional", sender = {}) => {
   const prompt = `
-Write a ${tone} sales email for the following lead. Goal: ${goal}.
+Write a ${tone} sales email for the following lead. Goal: ${purpose}.
+Make sure to fill in all variables like names and companies (do not output placeholders like [Lead Name]). 
+Sender Name: ${sender.name || "Sales Rep"}
+Sender Company: ${sender.company || "Our Company"}
+
 Return a JSON object with exactly these keys:
 - "subject": email subject line
-- "body": full email body (plain text, use \\n for line breaks)
+- "body": full email body (plain text, use \\n for line breaks, no placeholders)
 - "cta": call-to-action phrase
 
 Lead data:
