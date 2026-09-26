@@ -161,23 +161,23 @@ const runSeed = async () => {
     await connectDB();
 
     // 1. Ensure default demo user exists
-    let demoUser = await User.findOne({ email: "deepaksingh@gmail.com" });
+    let demoUser = await User.findOne({ email: "admin@gmail.com" });
     if (!demoUser) {
       demoUser = await User.create({
-        name: "Deepak Singh",
-        email: "deepaksingh@gmail.com",
-        password: "test@123",
+        name: "Admin User",
+        email: "admin@gmail.com",
+        password: "admin123",
         company: "RevFlux",
         role: "owner",
       });
-      console.log("👤 Created demo user: Deepak Singh (deepaksingh@gmail.com)");
+      console.log("👤 Created demo user: Admin User (admin@gmail.com)");
     }
 
     // Seed data for Alex Carter
     await seedUserData(demoUser);
 
     // Also seed for any other registered users
-    const otherUsers = await User.find({ email: { $ne: "deepaksingh@gmail.com" } });
+    const otherUsers = await User.find({ email: { $ne: "admin@gmail.com" } });
     for (const other of otherUsers) {
       await seedUserData(other);
     }
