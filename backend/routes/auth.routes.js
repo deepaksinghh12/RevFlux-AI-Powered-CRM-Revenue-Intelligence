@@ -6,6 +6,7 @@ import {
   googleLogin,
   getMe,
   updateProfile,
+  seedDemoData,
 } from "../controllers/auth.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -17,7 +18,7 @@ router.post("/login", login);
 router.post("/google", googleLogin);
 
 router.get("/me", protect, getMe);
-
 router.put("/profile", protect, updateProfile);
+router.post("/seed-demo", protect, seedDemoData);
 
 export default router;

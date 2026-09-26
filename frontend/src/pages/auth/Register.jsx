@@ -37,7 +37,7 @@ export default function Register() {
     try {
       await registerUser(data);
       toast.success("Account created — welcome to RevFlux! 🎉");
-      navigate("/", { replace: true });
+      navigate("/onboarding", { replace: true });
     } catch (err) {
       toast.error(err.message || "Registration failed");
     } finally {

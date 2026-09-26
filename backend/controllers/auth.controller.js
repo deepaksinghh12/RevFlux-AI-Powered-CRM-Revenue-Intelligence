@@ -213,3 +213,77 @@ export const googleLogin = asyncHandler(async (req, res) => {
     user: toClientUser(user),
   });
 });
+
+// ===============================
+// 1-CLICK SEED DEMO DATA
+// ===============================
+export const seedDemoData = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000);
+  const daysAhead = (n) => new Date(Date.now() + n * 86400000);
+
+  // Clear existing data for user
+  await Promise.all([
+    Lead.deleteMany({ owner: userId }),
+    Contact.deleteMany({ owner: userId }),
+    Note.deleteMany({ owner: userId }),
+    Task.deleteMany({ owner: userId }),
+  ]);
+
+  const sampleLeads = [
+    { name: "Dribbble Design", company: "Acme Corp", status: "New", priority: "High", source: "Website", value: 89345, ageDays: 4 },
+    { name: "Google Pay Integration", company: "Globex", status: "Qualified", priority: "High", source: "Referral", value: 124000, ageDays: 12 },
+    { name: "Amazon Cloud Analytics", company: "Initech", status: "Proposal", priority: "Medium", source: "Cold Outreach", value: 32123, ageDays: 18 },
+    { name: "Datadog Observability", company: "Stark Industries", status: "New", priority: "Medium", source: "Website", value: 45000, ageDays: 2 },
+    { name: "Stripe Billing", company: "Umbrella Co", status: "Won", priority: "High", source: "Event", value: 76500, ageDays: 45 },
+    { name: "Airtable Automation", company: "Wayne Ent.", status: "Qualified", priority: "High", source: "Event", value: 67000, ageDays: 38 },
+    { name: "Snowflake Warehouse", company: "Cyberdyne", status: "Proposal", priority: "High", source: "Referral", value: 152000, ageDays: 52 },
+    { name: "HubSpot Marketing", company: "Tyrell Corp", status: "Won", priority: "Medium", source: "Event", value: 88000, ageDays: 70 },
+  ];
+
+  const createdLeads = [];
+  for (const item of sampleLeads) {
+    const doc = await Lead.create({
+      owner: userId,
+      name: item.name,
+      company: item.company,
+      email: `${item.name.toLowerCase().replace(/[^a-z]/g, "")}@${item.company.toLowerCase().replace(/[^a-z]/g, "")}.com`,
+      status: item.status,
+      priority: item.priority,
+      source: item.source,
+      value: item.value,
+      notes: "Sample lead seeded during workspace onboarding.",
+      tags: ["sample", "demo"],
+      aiRiskScore: item.status === "Won" ? 10 : 35,
+      createdAt: daysAgo(item.ageDays),
+    });
+    createdLeads.push(doc);
+  }
+
+  // Create sample tasks
+  if (createdLeads.length > 0) {
+    await Task.create({
+      owner: userId,
+      title: "Schedule product demo",
+      relatedLead: createdLeads[0]._id,
+      status: "Pending",
+      priority: "High",
+      dueDate: daysAhead(2),
+    });
+    await Task.create({
+      owner: userId,
+      title: "Send pricing proposal",
+      relatedLead: createdLeads[1]._id,
+      status: "Pending",
+      priority: "Medium",
+      dueDate: daysAhead(4),
+    });
+  }
+
+  res.json({
+    success: true,
+    message: "Sample demo workspace seeded successfully!",
+    leadsCount: createdLeads.length,
+  });
+});

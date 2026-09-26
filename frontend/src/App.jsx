@@ -13,6 +13,8 @@ import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import PublicCaptureForm from "./pages/PublicCaptureForm";
 import LeadDetail from "./pages/LeadDetail";
+import Onboarding from "./pages/Onboarding";
+import Demo from "./pages/Demo";
 
 /* Central route table. Auth routes are public; everything else is wrapped in
    the authenticated AppLayout behind <ProtectedRoute>. */
@@ -22,9 +24,20 @@ export default function App() {
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/demo" element={<Demo />} />
       <Route path="/forms/:ownerId" element={<PublicCaptureForm />} />
 
-      {/* Private */}
+      {/* Private (Stand-alone pages without full AppLayout shell) */}
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Private (Main Workspace Shell) */}
       <Route
         element={
           <ProtectedRoute>
