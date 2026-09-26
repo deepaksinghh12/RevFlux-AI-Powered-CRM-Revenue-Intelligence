@@ -7,6 +7,7 @@ import {
   deleteLead,
   reorderLeads,
   sendLeadEmail,
+  importLeads,
 } from "../controllers/lead.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 
@@ -20,6 +21,7 @@ router.route("/")
   .post(createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
+router.post("/bulk", importLeads);
 router.patch("/reorder", reorderLeads);
 router.put("/reorder", reorderLeads);
 

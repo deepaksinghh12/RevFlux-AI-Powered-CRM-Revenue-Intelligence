@@ -18,6 +18,7 @@ export const leadsApi = {
   remove: (id) => api.delete(`/leads/${id}`),
   reorder: (updates) => api.patch("/leads/reorder", { updates }),
   sendEmail: (id, data) => api.post(`/leads/${id}/send-email`, data),
+  bulkCreate: (data) => api.post("/leads/bulk", data),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */

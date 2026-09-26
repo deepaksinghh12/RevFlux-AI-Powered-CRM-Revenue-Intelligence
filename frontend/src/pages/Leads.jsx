@@ -16,8 +16,10 @@ import {
   LayoutGrid,
   Table2,
   Download,
+  Upload,
   Building2,
 } from "lucide-react";
+import Papa from "papaparse";
 import { PageHeader } from "../components/common/PageHeader";
 import { EmptyState } from "../components/common/EmptyState";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
@@ -235,9 +237,54 @@ export default function Leads() {
     toast.success(`Exported ${rows.length} ${rows.length === 1 ? "lead" : "leads"}`);
   };
 
+  const importCSV = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".csv";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      toast.loading("Importing leads...", { id: "import" });
+      
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            // Map the parsed CSV objects to our Lead schema
+            const leadsToImport = results.data.map(row => ({
+              name: row.Name || row.name || "Unknown Lead",
+              company: row.Company || row.company || "",
+              email: row.Email || row.email || "",
+              phone: row.Phone || row.phone || "",
+              status: row.Stage || row.status || "New",
+              priority: row.Priority || row.priority || "Medium",
+              source: row.Source || row.source || "Other",
+              value: Number(row.Value || row.value) || 0,
+            }));
+
+            const res = await leadsApi.bulkCreate({ leads: leadsToImport });
+            toast.success(res.message, { id: "import" });
+            fetchLeads(); // Refresh table
+          } catch (err) {
+            toast.error(err.message || "Failed to import leads", { id: "import" });
+          }
+        },
+        error: (err) => {
+          toast.error("Failed to parse CSV file", { id: "import" });
+        }
+      });
+    };
+    input.click();
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="Leads" subtitle="Track and qualify every opportunity.">
+        <Button variant="outline" onClick={importCSV}>
+          <Upload className="h-4 w-4" /> Import
+        </Button>
         <Button variant="outline" onClick={exportCSV}>
           <Download className="h-4 w-4" /> Export
         </Button>

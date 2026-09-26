@@ -327,3 +327,37 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
     throw new ApiError(500, err.message || "Failed to send email via Resend");
   }
 });
+
+// ===============================
+// IMPORT BULK LEADS (CSV)
+// ===============================
+
+export const importLeads = asyncHandler(async (req, res) => {
+  const { leads } = req.body;
+
+  if (!leads || !Array.isArray(leads) || leads.length === 0) {
+    throw new ApiError(400, "Please provide an array of leads to import.");
+  }
+
+  // Ensure every imported lead belongs to the user
+  // and has defaults if missing
+  const leadsToInsert = leads.map((lead) => ({
+    owner: req.user._id,
+    name: lead.name || "Unknown Lead",
+    company: lead.company || "",
+    email: lead.email || "",
+    phone: lead.phone || "",
+    status: LEAD_STATUSES.includes(lead.status) ? lead.status : "New",
+    priority: LEAD_PRIORITIES.includes(lead.priority) ? lead.priority : "Medium",
+    value: Number(lead.value) || 0,
+    source: lead.source || "Other",
+  }));
+
+  const inserted = await Lead.insertMany(leadsToInsert);
+
+  res.status(201).json({
+    success: true,
+    count: inserted.length,
+    message: `Successfully imported ${inserted.length} leads.`,
+  });
+});
