@@ -1,4 +1,8 @@
 import User from "../models/User.js";
+import { Lead } from "../models/Lead.js";
+import { Contact } from "../models/Contact.js";
+import { Note } from "../models/Note.js";
+import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { generateToken } from "../utils/generateToken.js";
@@ -70,54 +74,41 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Validate required fields
   if (!email || !password) {
-    throw new ApiError(
-      400,
-      "Email and password are required"
-    );
+    throw new ApiError(400, "Please provide email and password");
   }
 
-  // Find user
-  // Password is normally hidden because select:false
-  // in User.js, so we explicitly include it here.
+  // Find user and explicitly select password field
   const user = await User.findOne({
     email: email.toLowerCase(),
   }).select("+password");
 
   if (!user) {
-    throw new ApiError(
-      401,
-      "Invalid email or password"
-    );
+    throw new ApiError(401, "Invalid email or password");
   }
 
-  // Compare entered password with hashed password
-  // stored in MongoDB.
-  const valid = await user.matchPassword(password);
-
-  if (!valid) {
-    throw new ApiError(
-      401,
-      "Invalid email or password"
-    );
+  // Match password
+  const isMatch = await user.matchPassword(password);
+  if (!isMatch) {
+    throw new ApiError(401, "Invalid email or password");
   }
 
-  // Login successful
-  res.json({
+  // Generate token and return user
+  const token = generateToken(user._id);
+
+  res.status(200).json({
     success: true,
-    token: generateToken(user._id),
+    token,
     user: toClientUser(user),
   });
 });
 
 // ===============================
-// GET CURRENT USER
+// GET CURRENT USER (Session check)
 // ===============================
 
 export const getMe = asyncHandler(async (req, res) => {
-  // req.user is added by auth middleware
-  res.json({
+  res.status(200).json({
     success: true,
     user: toClientUser(req.user),
   });
@@ -128,80 +119,63 @@ export const getMe = asyncHandler(async (req, res) => {
 // ===============================
 
 export const updateProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
   const { name, company, avatar, password } = req.body;
 
-  // User is already identified by auth middleware
-  const user = req.user;
+  if (name) user.name = name;
+  if (company !== undefined) user.company = company;
+  if (avatar !== undefined) user.avatar = avatar;
+  if (password) user.password = password;
 
-  // Update only fields that were provided
-  if (name !== undefined) {
-    user.name = name;
-  }
-
-  if (company !== undefined) {
-    user.company = company;
-  }
-
-  if (avatar !== undefined) {
-    user.avatar = avatar;
-  }
-
-  if (password !== undefined) {
-    user.password = password;
-  }
-
-  // Save changes
-  // If password was changed, the pre-save
-  // middleware in User.js will hash it.
   await user.save();
 
-  res.json({
+  res.status(200).json({
     success: true,
     user: toClientUser(user),
   });
 });
 
 // ===============================
-// GOOGLE LOGIN
+// GOOGLE OAUTH LOGIN / REGISTER
 // ===============================
 
 export const googleLogin = asyncHandler(async (req, res) => {
   const { credential } = req.body;
 
   if (!credential) {
-    throw new ApiError(400, "Google token is required.");
+    throw new ApiError(400, "Google credential token is required");
   }
 
-  // Verify the Google ID token
+  // Verify Google ID token
   const ticket = await googleClient.verifyIdToken({
     idToken: credential,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
 
   const payload = ticket.getPayload();
-  const { name, email, picture, sub: googleId } = payload;
+  const { name, email, picture } = payload;
 
   // Check if user exists by email
   let user = await User.findOne({ email });
 
   if (user) {
-    // Optional: Update avatar if they didn't have one
     if (!user.avatar && picture) {
       user.avatar = picture;
       await user.save();
     }
   } else {
-    // Create new user (Generate a random secure password for local auth)
-    // We append the timestamp to ensure uniqueness
     const randomPassword = Math.random().toString(36).slice(-10) + Date.now();
-    
     user = await User.create({
       name,
       email,
       password: randomPassword,
       avatar: picture,
-      // They don't have a company yet, but we can leave it empty or default it
-      company: "My Company", 
+      company: "My Company",
     });
   }
 
@@ -217,6 +191,7 @@ export const googleLogin = asyncHandler(async (req, res) => {
 // ===============================
 // 1-CLICK SEED DEMO DATA
 // ===============================
+
 export const seedDemoData = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
@@ -261,7 +236,6 @@ export const seedDemoData = asyncHandler(async (req, res) => {
     createdLeads.push(doc);
   }
 
-  // Create sample tasks
   if (createdLeads.length > 0) {
     await Task.create({
       owner: userId,
