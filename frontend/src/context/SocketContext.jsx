@@ -23,7 +23,10 @@ export function SocketProvider({ children }) {
     });
 
     s.on("connect", () => {
-      s.emit("join", user._id);
+      const userId = user._id || user.id;
+      if (userId) {
+        s.emit("join", userId.toString());
+      }
     });
 
     s.on("notification", (data) => {

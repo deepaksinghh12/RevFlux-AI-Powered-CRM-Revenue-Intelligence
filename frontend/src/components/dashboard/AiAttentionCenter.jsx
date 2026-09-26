@@ -159,7 +159,9 @@ function AttentionLeadCard({ lead, onEmail, onSchedule, onView }) {
 
         {/* Stage & Value Pill */}
         <div className="mt-3 flex items-center gap-2">
-          <Badge className={cn("text-[10px]", STAGE_STYLES[lead.status])}>{lead.status}</Badge>
+          <Badge className={cn("text-[10px]", STAGE_STYLES[lead.status]?.badge || "bg-sky-50 text-sky-700")}>
+            {lead.status}
+          </Badge>
           <span className="font-mono text-xs font-semibold text-ink">{currency(lead.value)}</span>
         </div>
 
