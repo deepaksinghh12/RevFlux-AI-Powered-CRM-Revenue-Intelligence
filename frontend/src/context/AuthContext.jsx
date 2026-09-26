@@ -47,6 +47,11 @@ export function AuthProvider({ children }) {
     return persist(res);
   }, []);
 
+  const googleLogin = useCallback(async (credential) => {
+    const res = await authApi.google(credential);
+    return persist(res);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
@@ -58,7 +63,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, updateUser }}
+      value={{ user, loading, login, googleLogin, register, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

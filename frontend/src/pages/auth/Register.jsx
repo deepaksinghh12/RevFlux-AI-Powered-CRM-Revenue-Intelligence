@@ -3,14 +3,28 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { User, Mail, Lock, Building2 } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import { AuthShell } from "./AuthShell";
 import { Button, Field, Input } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Register() {
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setSubmitting(true);
+      const user = await googleLogin(credentialResponse.credential);
+      toast.success(`Welcome to RevFlux, ${user.name.split(" ")[0]}! 🎉`);
+      navigate("/", { replace: true });
+    } catch (err) {
+      toast.error(err.message || "Google signup failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const {
     register,
@@ -22,7 +36,7 @@ export default function Register() {
     setSubmitting(true);
     try {
       await registerUser(data);
-      toast.success("Account created — welcome to TTP CRM! 🎉");
+      toast.success("Account created — welcome to RevFlux! 🎉");
       navigate("/", { replace: true });
     } catch (err) {
       toast.error(err.message || "Registration failed");
@@ -37,6 +51,26 @@ export default function Register() {
       <p className="mt-1.5 text-sm text-ink-soft">
         Start managing your pipeline in minutes.
       </p>
+
+      <div className="mt-8">
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => toast.error("Google signup failed")}
+          theme="outline"
+          size="large"
+          text="signup_with"
+          width="100%"
+        />
+      </div>
+
+      <div className="relative mt-8">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-line" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-canvas px-2 text-ink-soft">Or continue with email</span>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
         <Field label="Full name" error={errors.name?.message}>

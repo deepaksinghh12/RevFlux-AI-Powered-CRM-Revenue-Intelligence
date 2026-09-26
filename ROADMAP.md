@@ -197,4 +197,6 @@ Ongoing:                Technical debt items above
 
 > **Tip:** Start with **Google OAuth** — it's the highest trust/effort ratio and makes the app feel production-ready immediately.
 
-> **Note:** All third-party services listed (Resend, Cloudinary, Google OAuth, OpenRouter) have **generous free tiers** — you can build the entire roadmap without spending money.
+> **Note on Infrastructure:** We aim to use **AWS Free Tier** services wherever possible (e.g., S3 for file storage, SES for emails if migrating from Resend, EC2/AppRunner for deployment) to keep hosting costs near zero while maintaining enterprise-grade reliability.
+
+> **Note:** All third-party services currently listed (Resend, Cloudinary, Google OAuth, OpenRouter) have **generous free tiers** — you can build the entire roadmap without spending money.

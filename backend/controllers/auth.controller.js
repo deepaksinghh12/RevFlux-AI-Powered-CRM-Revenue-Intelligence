@@ -2,6 +2,9 @@ import User from "../models/User.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { generateToken } from "../utils/generateToken.js";
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Convert user document into safe object for frontend
 // Password is intentionally excluded.
@@ -154,6 +157,59 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    user: toClientUser(user),
+  });
+});
+
+// ===============================
+// GOOGLE LOGIN
+// ===============================
+
+export const googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+
+  if (!credential) {
+    throw new ApiError(400, "Google token is required.");
+  }
+
+  // Verify the Google ID token
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+  const { name, email, picture, sub: googleId } = payload;
+
+  // Check if user exists by email
+  let user = await User.findOne({ email });
+
+  if (user) {
+    // Optional: Update avatar if they didn't have one
+    if (!user.avatar && picture) {
+      user.avatar = picture;
+      await user.save();
+    }
+  } else {
+    // Create new user (Generate a random secure password for local auth)
+    // We append the timestamp to ensure uniqueness
+    const randomPassword = Math.random().toString(36).slice(-10) + Date.now();
+    
+    user = await User.create({
+      name,
+      email,
+      password: randomPassword,
+      avatar: picture,
+      // They don't have a company yet, but we can leave it empty or default it
+      company: "My Company", 
+    });
+  }
+
+  const token = generateToken(user._id);
+
+  res.status(200).json({
+    success: true,
+    token,
     user: toClientUser(user),
   });
 });

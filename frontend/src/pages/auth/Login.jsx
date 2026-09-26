@@ -3,15 +3,29 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Mail, Lock } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import { AuthShell } from "./AuthShell";
 import { Button, Field, Input } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setSubmitting(true);
+      const user = await googleLogin(credentialResponse.credential);
+      toast.success(`Welcome, ${user.name.split(" ")[0]} 👋`);
+      navigate(location.state?.from?.pathname || "/", { replace: true });
+    } catch (err) {
+      toast.error(err.message || "Google login failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const {
     register,
@@ -35,7 +49,7 @@ export default function Login() {
 
   // Convenience: pre-fill the seeded demo credentials.
   const useDemo = () => {
-    setValue("email", "alex@timetoprogram.com");
+    setValue("email", "alex@revflux.com");
     setValue("password", "Test@1234");
   };
 
@@ -43,8 +57,28 @@ export default function Login() {
     <AuthShell>
       <h1 className="text-2xl font-bold text-ink">Welcome back</h1>
       <p className="mt-1.5 text-sm text-ink-soft">
-        Sign in to your TTP CRM workspace.
+        Sign in to your RevFlux workspace.
       </p>
+
+      <div className="mt-8">
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => toast.error("Google login failed")}
+          theme="outline"
+          size="large"
+          text="signin_with"
+          width="100%"
+        />
+      </div>
+
+      <div className="relative mt-8">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-line" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-canvas px-2 text-ink-soft">Or continue with email</span>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
         <Field label="Email" error={errors.email?.message}>
