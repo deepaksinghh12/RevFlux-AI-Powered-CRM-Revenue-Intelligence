@@ -1,75 +1,96 @@
 # RevFlux 🚀
-**AI-Powered CRM & Revenue Intelligence Platform**
+**AI-Powered SaaS CRM & Revenue Intelligence Platform**
 
-> RevFlux helps small sales teams stop losing leads and follow-ups by combining CRM, AI sales intelligence, and actionable follow-up management.
+> RevFlux is an enterprise-ready, interview-proof SaaS CRM designed for fast-moving sales teams. It combines core CRM workflows (leads, contacts, tasks, Kanban pipeline) with AI-native intelligence, automated email drafting, hybrid risk scoring, guided onboarding, tiered subscription billing, and enterprise security hardening.
 
 ---
 
 ## 🏛️ System Architecture
 
-RevFlux is built using a clean, layered Node.js/Express backend and React 19 frontend designed for speed, scale, and clear interview-proof software engineering principles.
+RevFlux uses a clean, layered Node.js/Express backend and a React 19 frontend designed for zero-latency feedback, high security standards, and production scale.
 
 ```
-[ React 19 Client ]  ◄──(Axios + Socket.io)──►  [ Express API Gateway ]
-        │                                              │
-        ├── Vite + Tailwind v4                         ├── Auth (JWT + Google OAuth)
-        ├── @dnd-kit Kanban                            ├── Node-cron Background Daemon
-        ├── Recharts Analytics                         ├── Resend Email Delivery
-        └── React Big Calendar                         ├── Cloudinary Document Storage
-                                                       └── OpenRouter LLM Engine (GPT-4o-mini)
-                                                               │
-                                                               ▼
-                                                       [ MongoDB Atlas ]
+                    ┌─────────────────────────────────────────┐
+                    │               Browser Client            │
+                    │        (React 19 + Vite + Tailwind)     │
+                    └────────────────────┬────────────────────┘
+                                         │
+                         HTTPS / REST    │   Socket.io (WebSockets)
+                                         ▼
+                    ┌─────────────────────────────────────────┐
+                    │            Node.js / Express API        │
+                    │ (Auth, Plan Gating, Rate Limits, Zod)   │
+                    └──────┬──────────┬──────────┬─────────┬──┘
+                           │          │          │         │
+             MongoDB Query │          │ HTTP     │ HTTP    │ HTTP
+                           ▼          ▼          ▼         ▼
+                    ┌──────────┐ ┌─────────┐ ┌───────┐ ┌────────────┐
+                    │ MongoDB  │ │ Gemini /│ │Resend │ │ Cloudinary │
+                    │ Atlas DB │ │OpenRouter│ │ Email │ │ File Store │
+                    └──────────┘ └─────────┘ └───────┘ └────────────┘
 ```
-
-### Stack Breakdown
-
-- **Frontend**: React 19, Vite, Tailwind CSS v4, `@dnd-kit` drag-and-drop, Recharts, React Big Calendar, Lucide React, PapaParse.
-- **Backend Architecture**: Layered Express architecture (`Route` -> `Middleware` -> `Controller` -> `Service` -> `Mongoose Model`).
-- **Database**: MongoDB Atlas with schemas for `User`, `Lead`, `Contact`, `Task`, `Note`.
-- **Authentication**: JWT authentication with local password hashing (`bcryptjs`) & Google OAuth ID token verification (`google-auth-library`).
-- **AI Intelligence**: OpenRouter API (`openai/gpt-4o-mini`) using structured JSON outputs for lead briefings, hybrid risk scoring, and email drafting.
-- **Real-Time & Async**: Socket.io room-based instant notifications, Node-cron background jobs for automated stale lead scoring, and Resend API for transactional email delivery.
-- **File Storage**: Cloudinary v2 SDK with Multer memory storage.
 
 ---
 
-## ✨ Key Features & Capabilities
+## ✨ Key Features & Capability Matrix
 
-### 1. 🎯 AI Attention Center & Risk Scoring
-- Hybrid risk scoring engine combining deterministic business rules (inactivity duration, stage stagnation, missing follow-ups) with LLM action recommendations.
-- Dashboard Attention Center surfacing high-risk deals with explainable reasons and one-click action triggers.
+### 🎯 1. AI Attention Center & Hybrid Risk Scoring
+- **Hybrid Risk Engine**: Deterministic rules evaluate deal age, stage duration, and missing follow-ups to assign 0–100 risk scores with explainable reasons.
+- **Attention Center**: Surfaces stagnant leads with 1-click action triggers (*Generate AI Email*, *Schedule Task*).
 
-### 2. 📋 Lead Pipeline & Kanban Board
-- Interactive drag-and-drop Kanban pipeline using `@dnd-kit`.
-- Dual view: Dense Table vs. Visual Kanban with live stage updates and bulk operations.
-- Tagging, multi-field search, priority indicators, and deal value metrics.
+### 📄 2. Full-Page Lead Detail (`/leads/:id`)
+- Unified **Activity Timeline** aggregating notes, tasks, emails sent, and stage transitions (`GET /api/leads/:id/activity`).
+- AI Executive Briefing panel, file attachment uploads via Cloudinary, and contact action buttons.
 
-### 3. 📅 Follow-up Scheduling & Calendar
-- Full-screen task calendar powered by `react-big-calendar`.
-- Timeline-grouped task management (Overdue, Due Today, Upcoming, Completed).
-- One-click follow-up scheduling directly from lead details.
+### 📋 3. Kanban Pipeline & Dense Lead Table
+- Interactive drag-and-drop deal board powered by `@dnd-kit`.
+- Dual view toggle (Dense Table vs. Visual Kanban) with stage filters, multi-field search, and deal value summaries.
 
-### 4. ✉️ AI-Assisted Email Communication
-- AI-generated personalized outreach drafts injected with real lead and sender profile data.
-- Send real emails directly via Resend with auto-created timeline Notes for full audit trails.
+### 📂 4. Enterprise CSV Ingestion Pipeline
+- 4-step CSV import wizard (`CsvImportDialog.jsx`): Upload, Dynamic Header Auto-Matching, Preview & Validation, and Error-Tolerant Bulk DB Insertion (`insertMany`).
 
-### 5. 📂 Bulk Data Ingestion & Storage
-- CSV bulk lead import and export with client-side parsing.
-- Drag-and-drop file attachments (PDFs, Docs, Images) stored securely on Cloudinary.
+### 🚀 5. Guided Onboarding & 1-Click Demo Sandbox
+- 3-step setup wizard (`Onboarding.jsx`) for new team initialization.
+- 1-click Demo visitor login (`/demo`) pre-populated with 1 full year of realistic deal data across 34 leads.
 
-### 6. 🌐 Public Lead Capture
-- Shareable unauthenticated lead capture form (`/forms/:ownerId`) with instant Socket.io notification to the lead owner's dashboard upon submission.
+### 🌐 6. Public Landing Page & Tiered Pricing
+- Public SaaS homepage ([Landing.jsx](file:///D:/coding/crm_dash/frontend/src/pages/Landing.jsx)) featuring a **Dynamic Typewriter Heading** (*"Stop Losing Sales Leads"* / *"Automate Follow-ups with AI"*), hero dashboard mockups, and About Us company values.
+- Tiered Pricing page ([Pricing.jsx](file:///D:/coding/crm_dash/frontend/src/pages/Pricing.jsx)) with monthly/annual discount toggles.
+
+### 💳 7. Subscription Billing & Plan Gating
+- `checkLeadLimit` middleware protecting lead creation endpoints against tier limits (Free: 50, Growth: 500, Enterprise: 10,000+).
+- In-app `SubscriptionModal.jsx` and `BillingCard` on the Settings page.
+
+### 🛡️ 8. Legal Center & Enterprise Hardening
+- **Legal Trust Center**: Unified [Legal.jsx](file:///D:/coding/crm_dash/frontend/src/pages/Legal.jsx) supporting Privacy Policy (`/privacy`), Terms of Service (`/terms`), and Security Architecture (`/security`).
+- **ReDoS Protection**: `escapeRegex` utility sanitizing search queries.
+- **Rate Limiting**: Sliding-window in-memory IP rate limiters on Auth (`/api/auth/*`) and AI (`/api/ai/*`) routes.
+- **Validation**: Strict schema validation middleware (`validateBody`).
+- **Containerization**: Multi-stage `Dockerfile` (backend & frontend) and production `docker-compose.yml`.
 
 ---
 
-## 🛠️ Local Development Setup
+## 📂 Documentation Sitemap
 
-### Prerequisites
-- Node.js (v18+)
-- MongoDB Atlas cluster or local MongoDB instance
+- 📘 **[Architecture & Concepts Guide](./REVFLUX_ARCHITECTURE_AND_CONCEPTS.md)** — Comprehensive technical guide, design patterns, and interview Q&A.
+- ⚙️ **[Backend Documentation](./backend/README.md)** — Express architecture, schema models, security middleware, and API endpoints.
+- 🎨 **[Frontend Documentation](./frontend/README.md)** — React 19 components, page routes, state management, and design system.
 
-### 1. Backend Setup
+---
+
+## 🛠️ Local Setup & Docker Deployment
+
+### 🐳 Option A: 1-Command Docker Setup (Recommended)
+```bash
+docker-compose up --build
+```
+Access the application at `http://localhost` (Frontend) and `http://localhost:5000` (Backend API).
+
+---
+
+### 💻 Option B: Manual Local Setup
+
+#### 1. Backend Setup
 ```bash
 cd backend
 npm install
@@ -77,10 +98,10 @@ npm install
 
 Create `.env` in `backend/`:
 ```env
-PORT=8080
+PORT=5000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
-MONGO_URI=your-mongodb-uri
+MONGO_URI=your-mongodb-connection-string
 JWT_SECRET=your-jwt-secret
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_MODEL=openai/gpt-4o-mini
@@ -91,7 +112,7 @@ CLOUDINARY_API_KEY=your-cloudinary-key
 CLOUDINARY_API_SECRET=your-cloudinary-secret
 ```
 
-Seed initial demo data:
+Seed 1 year of demo data:
 ```bash
 npm run seed
 ```
@@ -101,7 +122,7 @@ Start dev server:
 npm run dev
 ```
 
-### 2. Frontend Setup
+#### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
@@ -109,7 +130,7 @@ npm install
 
 Create `.env` in `frontend/`:
 ```env
-VITE_API_URL=http://localhost:8080/api
+VITE_API_URL=http://localhost:5000/api
 VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
@@ -120,5 +141,5 @@ npm run dev
 
 ---
 
-## 📄 License & Roadmap
-For detailed sprint timelines, commercial positioning, and enterprise architecture roadmap, see [`ROADMAP.md`](./ROADMAP.md).
+## 📄 License
+Copyright © 2026 RevFlux Inc. All rights reserved.

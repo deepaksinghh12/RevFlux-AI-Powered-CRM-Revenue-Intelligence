@@ -23,6 +23,8 @@ const toClientUser = (user) => ({
   subscriptionStatus: user.subscriptionStatus || "trialing",
   leadLimit: user.leadLimit ?? 50,
   aiCallCount: user.aiCallCount ?? 0,
+  lastPaymentId: user.lastPaymentId || "",
+  lastBilledAt: user.lastBilledAt || null,
   createdAt: user.createdAt,
 });
 
@@ -270,7 +272,7 @@ export const seedDemoData = asyncHandler(async (req, res) => {
 // SUBSCRIBE / UPGRADE PLAN (Task 7.2)
 // ===============================
 export const subscribePlan = asyncHandler(async (req, res) => {
-  const { plan } = req.body;
+  const { plan, paymentId, paymentMethod } = req.body;
 
   const PLAN_LIMITS = {
     free: 50,
@@ -283,17 +285,27 @@ export const subscribePlan = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid subscription plan selected.");
   }
 
+  // Paid plans require a payment transaction ID from the gateway
+  if (plan !== "free" && !paymentId) {
+    throw new ApiError(402, "Payment verification required for paid plan upgrade.");
+  }
+
   const user = await User.findById(req.user._id);
   if (!user) throw new ApiError(404, "User not found.");
 
   user.plan = plan;
   user.subscriptionStatus = "active";
   user.leadLimit = PLAN_LIMITS[plan];
+  if (paymentId) {
+    user.lastPaymentId = paymentId;
+    user.lastBilledAt = new Date();
+  }
   await user.save();
 
   res.json({
     success: true,
-    message: `Subscription successfully upgraded to ${plan.toUpperCase()} plan!`,
+    message: `Payment verified! Subscription upgraded to ${plan.toUpperCase()} plan.`,
+    paymentId: paymentId || "N/A",
     user: toClientUser(user),
   });
 });
