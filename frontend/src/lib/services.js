@@ -21,6 +21,7 @@ export const leadsApi = {
   bulkCreate: (data) => api.post("/leads/bulk", data),
   uploadAttachment: (id, formData) => api.post(`/leads/${id}/attachments`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
   deleteAttachment: (id, attachmentId) => api.delete(`/leads/${id}/attachments/${attachmentId}`),
+  getActivity: (id) => api.get(`/leads/${id}/activity`),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */

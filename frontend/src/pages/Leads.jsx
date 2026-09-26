@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -50,6 +51,7 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 
 export default function Leads() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [leads, setLeads] = useState(null);
   const [filters, setFilters] = useState({ status: "", priority: "", source: "", search: "", tag: "" });
@@ -448,7 +450,7 @@ export default function Leads() {
               lead={l}
               selected={selected.has(l._id)}
               onToggle={() => toggleRow(l._id)}
-              onOpen={() => setDrawerLead(l)}
+              onOpen={() => navigate(`/leads/${l._id}`)}
               onEdit={openEdit}
               onDelete={setToDelete}
             />
@@ -485,7 +487,7 @@ export default function Leads() {
                   return (
                     <tr
                       key={l._id}
-                      onClick={() => setDrawerLead(l)}
+                      onClick={() => navigate(`/leads/${l._id}`)}
                       className={cn(
                         "group cursor-pointer border-b border-line last:border-0 transition",
                         isSel ? "bg-brand-50/50" : "hover:bg-surface-muted/50"

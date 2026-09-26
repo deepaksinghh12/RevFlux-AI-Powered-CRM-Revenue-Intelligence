@@ -61,6 +61,71 @@ export const getLeads = asyncHandler(async (req, res) => {
 });
 
 // ===============================
+// GET SINGLE LEAD ACTIVITY TIMELINE
+// ===============================
+export const getLeadActivity = asyncHandler(async (req, res) => {
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+  if (!lead) {
+    throw new ApiError(404, "Lead not found");
+  }
+
+  // Fetch associated notes and tasks in parallel
+  const [notes, tasks] = await Promise.all([
+    Note.find({ owner: req.user._id, lead: lead._id }).sort({ createdAt: -1 }),
+    Task.find({ owner: req.user._id, relatedLead: lead._id }).sort({ createdAt: -1 }),
+  ]);
+
+  // Combine into unified chronological activity timeline
+  const activity = [];
+
+  // Add initial lead creation event
+  activity.push({
+    id: `creation-${lead._id}`,
+    type: "system",
+    title: "Lead Created",
+    description: `Lead created via ${lead.source || "Direct Input"}`,
+    timestamp: lead.createdAt,
+  });
+
+  // Map notes (distinguish between general notes and sent emails)
+  notes.forEach((note) => {
+    const isEmail = note.content.startsWith("Email Sent:");
+    activity.push({
+      id: note._id.toString(),
+      type: isEmail ? "email" : "note",
+      title: isEmail ? "Outreach Email Sent" : "Note Added",
+      description: note.content,
+      pinned: note.pinned,
+      timestamp: note.createdAt,
+    });
+  });
+
+  // Map tasks
+  tasks.forEach((task) => {
+    activity.push({
+      id: task._id.toString(),
+      type: "task",
+      title: `Task: ${task.title}`,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      timestamp: task.createdAt,
+    });
+  });
+
+  // Sort timeline newest first
+  activity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  res.json({
+    success: true,
+    activity,
+    notesCount: notes.length,
+    tasksCount: tasks.length,
+  });
+});
+
+// ===============================
 // GET SINGLE LEAD
 // ===============================
 export const getLead = asyncHandler(async (req, res) => {

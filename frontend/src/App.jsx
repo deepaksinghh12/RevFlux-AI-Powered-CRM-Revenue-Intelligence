@@ -12,6 +12,7 @@ import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import PublicCaptureForm from "./pages/PublicCaptureForm";
+import LeadDetail from "./pages/LeadDetail";
 
 /* Central route table. Auth routes are public; everything else is wrapped in
    the authenticated AppLayout behind <ProtectedRoute>. */
@@ -33,6 +34,7 @@ export default function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/leads" element={<Leads />} />
+        <Route path="/leads/:id" element={<LeadDetail />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/notes" element={<Notes />} />

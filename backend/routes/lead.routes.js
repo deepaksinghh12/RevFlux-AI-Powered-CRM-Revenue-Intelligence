@@ -10,6 +10,7 @@ import {
   importLeads,
   uploadAttachment,
   deleteAttachment,
+  getLeadActivity,
 } from "../controllers/lead.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
@@ -28,6 +29,7 @@ router.post("/bulk", importLeads);
 router.patch("/reorder", reorderLeads);
 router.put("/reorder", reorderLeads);
 
+router.get("/:id/activity", getLeadActivity);
 router.post("/:id/send-email", sendLeadEmail);
 
 // Attachment routes (must be before the generic /:id route)
