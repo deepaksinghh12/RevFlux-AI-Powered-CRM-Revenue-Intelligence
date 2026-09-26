@@ -165,6 +165,31 @@ Generate a shareable link — prospects fill a form and land directly in your pi
 
 ---
 
+## 🏢 Enterprise & Scale Features (Portfolio Showpieces)
+
+These features demonstrate full-stack maturity, systems architecture, and applied AI depth.
+
+### 1. Multi-Tenancy & RBAC
+- **Workspace Model**: Shared database with `orgId` tenant scoping. Leads/Contacts belong to the Workspace, not just a single user.
+- **Role-Based Access Control**: `Admin`, `Manager`, and `Rep` roles. Reps only see their assigned leads; Managers see the whole team pipeline.
+- **Audit Logs**: Immutable history of who changed what stage/note and when.
+
+### 2. Event-Driven Architecture & Queues
+- **Background Workers**: Integrate `BullMQ` + `Redis` to move AI email generation, lead auto-scoring, and massive CSV imports off the main Node.js thread.
+- **Webhooks**: Allow outbound webhooks so tenants can subscribe to events (e.g., `lead.won`) for Zapier/Slack integration.
+
+### 3. Data & AI Maturity (RAG)
+- **Atlas Vector Search**: Generate embeddings for all lead notes and conversations.
+- **Semantic Pipeline Search**: Allow reps to ask natural language questions across the entire pipeline (e.g., *"Which leads mentioned budget concerns in the last 30 days?"*).
+- **Model Routing**: Fallback logic to cheaper models if the primary LLM fails or rate-limits.
+
+### 4. Reliability & Governance
+- **API Rate Limiting**: Per-tenant rate limits (Redis + `express-rate-limit`) to prevent noisy neighbors.
+- **Circuit Breakers**: Wrap third-party AI/Resend calls with retries and fallbacks.
+- **Field-level Encryption**: Encrypt PII (emails/phone numbers) at rest in MongoDB.
+
+---
+
 ## 🗂️ Technical Debt & Quality-of-Life
 
 | Task | Priority | Effort |

@@ -104,8 +104,8 @@ RevFlux is constantly evolving. Here is a look at what is coming next in our spr
 
 1. **📊 Advanced Analytics Dashboard**: Adding deeper insights into Win/Loss rates, average deal cycle times, and top-performing months.
 2. **🔔 Real-time Notifications**: Implementing WebSockets (`Socket.io`) for live in-app alerts when tasks are due or deals close.
-3. **👥 Team Management**: Multi-player mode. Invite other sales reps to your workspace and assign specific leads to them with scoped permissions (Owner vs. Rep).
-4. **📎 File Attachments**: Drag-and-drop AWS S3 integrations to attach PDF contracts, call recordings, and proposals directly to a Lead's profile.
-5. **🤖 AI Auto-scoring Daemon**: A nightly cron job that automatically re-scores all leads based on interaction staleness to flag at-risk accounts.
+3. **🏢 Enterprise Multi-Tenancy**: Shifting to an `orgId` scoped Workspace model with Admin/Manager/Rep RBAC.
+4. **⚙️ Event-Driven AI Queues**: Integrating `BullMQ` and Redis to handle heavy AI tasks asynchronously.
+5. **🧠 Semantic Vector Search (RAG)**: Using MongoDB Atlas Vector Search to allow reps to query the pipeline using natural language ("Which leads mentioned budget limits?").
 
 *(For detailed timelines, see `ROADMAP.md`)*
