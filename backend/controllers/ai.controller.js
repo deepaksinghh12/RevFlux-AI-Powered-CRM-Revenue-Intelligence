@@ -174,3 +174,98 @@ export const salesInsights = asyncHandler(async (req, res) => {
     ...insights,
   });
 });
+
+// ===============================
+// AI ATTENTION CENTER
+// ===============================
+export const getAttentionLeads = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  // 1. Fetch all open leads (excluding Won and Lost)
+  const openLeads = await Lead.find({
+    owner: userId,
+    status: { $nin: ["Won", "Lost"] },
+  });
+
+  if (openLeads.length === 0) {
+    return res.json({ success: true, count: 0, leads: [] });
+  }
+
+  // 2. Fetch pending tasks for the user to check upcoming follow-ups
+  const pendingTasks = await Task.find({
+    owner: userId,
+    status: { $ne: "Completed" },
+  });
+
+  const leadTaskMap = new Set(
+    pendingTasks
+      .filter((t) => t.relatedLead)
+      .map((t) => t.relatedLead.toString())
+  );
+
+  const now = new Date();
+
+  // 3. Compute risk scores and explainable reasons for each lead
+  const assessedLeads = openLeads.map((lead) => {
+    const updatedAt = new Date(lead.updatedAt || lead.createdAt);
+    const daysInactive = Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24));
+    const hasFollowUp = leadTaskMap.has(lead._id.toString());
+
+    let computedRisk = lead.aiRiskScore !== null && lead.aiRiskScore !== undefined ? lead.aiRiskScore : 30;
+    const reasons = [];
+    let recommendedAction = "Schedule follow-up call";
+
+    if (daysInactive > 7) {
+      computedRisk += Math.min(40, (daysInactive - 7) * 4);
+      reasons.push(`No activity recorded for ${daysInactive} days`);
+    }
+
+    if (!hasFollowUp) {
+      computedRisk += 20;
+      reasons.push("No upcoming follow-up task scheduled");
+    }
+
+    if (lead.status === "Qualified" && daysInactive > 14) {
+      computedRisk += 15;
+      reasons.push("Stuck in Qualified stage for over 2 weeks");
+      recommendedAction = "Send product demo invite or ROI overview";
+    } else if (lead.status === "Proposal" && daysInactive > 10) {
+      computedRisk += 20;
+      reasons.push("Proposal pending decision for >10 days");
+      recommendedAction = "Send closing email or schedule decision call";
+    } else if (daysInactive > 14) {
+      recommendedAction = "Send re-engagement outreach email";
+    }
+
+    // Clamp score between 0 and 100
+    const finalRiskScore = Math.min(100, Math.max(0, computedRisk));
+
+    return {
+      _id: lead._id,
+      name: lead.name,
+      company: lead.company,
+      email: lead.email,
+      phone: lead.phone,
+      value: lead.value,
+      status: lead.status,
+      priority: lead.priority,
+      riskScore: finalRiskScore,
+      reasons: reasons.length > 0 ? reasons : ["Standard follow-up cadence recommended"],
+      recommendedAction,
+      daysInactive,
+      hasFollowUp,
+    };
+  });
+
+  // 4. Sort by risk score descending & return top risky leads (score >= 40)
+  const attentionLeads = assessedLeads
+    .filter((l) => l.riskScore >= 40 || l.daysInactive > 5 || !l.hasFollowUp)
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 6);
+
+  res.json({
+    success: true,
+    count: attentionLeads.length,
+    leads: attentionLeads,
+  });
+});

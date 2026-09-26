@@ -55,6 +55,7 @@ export const aiApi = {
   leadSummary: (data) => api.post("/ai/lead-summary", data),
   generateEmail: (data) => api.post("/ai/generate-email", data),
   salesInsights: (data) => api.post("/ai/sales-insights", data),
+  getAttention: () => api.get("/ai/attention"),
 };
 
 /* ── Analytics ──────────────────────────────────────────────────────── */

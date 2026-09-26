@@ -6,6 +6,7 @@ import {
   generateEmailDraft,
   salesInsights,
   buildPipelineStatus,
+  getAttentionLeads,
 } from "../controllers/ai.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 
@@ -14,6 +15,7 @@ const router = Router();
 router.use(protect);
 
 router.get("/status", getAiStatus);
+router.get("/attention", getAttentionLeads);
 router.post("/lead-summary", leadSummary);
 router.post("/lead", aiLead);
 router.post("/lead/:id", aiLead);

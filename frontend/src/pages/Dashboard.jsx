@@ -32,6 +32,7 @@ import {
 import { format, isPast } from "date-fns";
 import { HeroCard } from "../components/dashboard/HeroCard";
 import { AiInsightsCard } from "../components/ai/AiInsightsCard";
+import { AiAttentionCenter } from "../components/dashboard/AiAttentionCenter";
 import {
   Card,
   SectionHeading,
@@ -93,8 +94,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Balanced 3-column composition — cards distributed so the columns end
-          at roughly the same height, leaving no large vertical gaps. */}
+      {/* AI Attention Center - Priority Lead Risk Co-Pilot */}
+      <AiAttentionCenter />
+
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         {/* ── Left column ───────────────────────────────── */}
         <div className="space-y-5 lg:col-span-3">
