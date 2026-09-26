@@ -54,6 +54,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [contacts, setContacts] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [range, setRange] = useState("monthly");
 
