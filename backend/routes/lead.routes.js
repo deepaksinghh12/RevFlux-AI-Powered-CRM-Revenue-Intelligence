@@ -8,8 +8,11 @@ import {
   reorderLeads,
   sendLeadEmail,
   importLeads,
+  uploadAttachment,
+  deleteAttachment,
 } from "../controllers/lead.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
+import { upload } from "../middleware/upload.middleware.js";
 
 const router = Router();
 
@@ -34,3 +37,9 @@ router.route("/:id")
   .delete(deleteLead);
 
 export default router;
+
+router.route("/:id/attachments")
+  .post(upload.single("file"), uploadAttachment);
+
+router.route("/:id/attachments/:attachmentId")
+  .delete(deleteAttachment);

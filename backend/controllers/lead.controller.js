@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { Resend } from "resend";
 import { getIO } from "../utils/socket.js";
+import cloudinary from "../config/cloudinary.js";
 
 // ===============================
 // GET ALL LEADS
@@ -374,5 +375,85 @@ export const importLeads = asyncHandler(async (req, res) => {
     success: true,
     count: inserted.length,
     message: `Successfully imported ${inserted.length} leads.`,
+  });
+});
+
+// ===============================
+// UPLOAD ATTACHMENT
+// ===============================
+export const uploadAttachment = asyncHandler(async (req, res) => {
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+
+  if (!lead) {
+    throw new ApiError(404, "Lead not found");
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, "No file uploaded");
+  }
+
+  // Upload to Cloudinary using upload_stream
+  const uploadResult = await new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: `crm_dash/leads/${lead._id}`,
+        resource_type: "auto", // handles raw files (pdf, docx) and images
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(req.file.buffer);
+  });
+
+  const attachment = {
+    name: req.file.originalname,
+    url: uploadResult.secure_url,
+    publicId: uploadResult.public_id,
+    format: uploadResult.format || uploadResult.resource_type,
+    size: req.file.size,
+  };
+
+  lead.attachments.push(attachment);
+  await lead.save();
+
+  res.status(201).json({
+    success: true,
+    attachment,
+    message: "File attached successfully",
+  });
+});
+
+// ===============================
+// DELETE ATTACHMENT
+// ===============================
+export const deleteAttachment = asyncHandler(async (req, res) => {
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+
+  if (!lead) {
+    throw new ApiError(404, "Lead not found");
+  }
+
+  const attachmentId = req.params.attachmentId;
+  const attachment = lead.attachments.id(attachmentId);
+
+  if (!attachment) {
+    throw new ApiError(404, "Attachment not found");
+  }
+
+  // Delete from Cloudinary
+  if (attachment.publicId) {
+    // If it's a raw file (pdf), resource_type must be raw
+    const resourceType = ["pdf", "zip", "raw"].includes(attachment.format) ? "raw" : "image";
+    await cloudinary.uploader.destroy(attachment.publicId, { resource_type: resourceType }).catch(err => console.error("Cloudinary delete error:", err));
+  }
+
+  lead.attachments.pull(attachmentId);
+  await lead.save();
+
+  res.json({
+    success: true,
+    message: "Attachment removed",
   });
 });

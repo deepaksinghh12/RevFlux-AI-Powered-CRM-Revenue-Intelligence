@@ -82,6 +82,17 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
+    attachments: [
+      {
+        name: String,
+        url: String,
+        publicId: String, // Cloudinary ID for deletion
+        format: String,
+        size: Number,
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+
     order: {
       type: Number,
       default: 0,

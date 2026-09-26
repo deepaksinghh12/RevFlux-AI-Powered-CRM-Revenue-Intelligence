@@ -8,23 +8,67 @@ import {
   Trash2,
   Wand2,
   AlertCircle,
+  Upload,
+  Paperclip,
 } from "lucide-react";
 import { Drawer, Button, Badge, Avatar, Spinner } from "../ui";
 import { AiEmailDialog } from "../ai/AiEmailDialog";
-import { aiApi } from "../../lib/services";
+import { aiApi, leadsApi } from "../../lib/services";
 import { currency, shortDate } from "../../lib/format";
 import { STAGE_STYLES, PRIORITY_STYLES } from "../../lib/constants";
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 
 /** Detailed slide-over for a single lead: info, AI summary, email generator. */
-export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
+export function LeadDrawer({ open, onClose, lead, onEdit, onDelete, onUpdate }) {
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   if (!lead) return null;
   const stage = STAGE_STYLES[lead.status] || STAGE_STYLES.New;
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File is too large (max 10MB)");
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await leadsApi.uploadAttachment(lead._id, formData);
+      toast.success("File attached!");
+      
+      if (onUpdate) {
+        onUpdate({ ...lead, attachments: [...(lead.attachments || []), res.attachment] });
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      e.target.value = ""; // Reset input
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      await leadsApi.deleteAttachment(lead._id, attachmentId);
+      toast.success("Attachment deleted");
+      
+      if (onUpdate) {
+        onUpdate({ ...lead, attachments: lead.attachments.filter(a => a._id !== attachmentId) });
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to delete attachment");
+    }
+  };
 
   const runSummary = async () => {
     setLoadingSummary(true);
@@ -137,6 +181,45 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Attachments */}
+        <div className="mt-5 rounded-2xl bg-surface p-4 shadow-[var(--shadow-soft)]">
+          <p className="flex items-center justify-between text-xs uppercase tracking-wide text-ink-soft">
+            <span>Attachments</span>
+            <span className="rounded bg-surface-muted px-1.5 py-0.5 text-ink">{lead.attachments?.length || 0}</span>
+          </p>
+          <div className="mt-3 space-y-2">
+            {lead.attachments?.map((file) => (
+              <div key={file._id} className="group flex items-center justify-between rounded-lg border border-line bg-surface p-2 transition hover:bg-surface-muted">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                    <Paperclip className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <a href={file.url} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-brand-700 hover:underline">
+                      {file.name}
+                    </a>
+                    <p className="text-[11px] text-ink-soft">{(file.size / 1024).toFixed(0)} KB</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteAttachment(file._id)}
+                  className="hidden rounded p-1.5 text-ink-soft hover:bg-rose-50 hover:text-rose-600 group-hover:block"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-3">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface px-4 py-3 text-sm font-medium text-brand-700 transition hover:bg-brand-50">
+              {uploading ? <Spinner size="sm" /> : <Upload className="h-4 w-4" />}
+              {uploading ? "Uploading..." : "Upload file (PDF, Doc, Img)"}
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+            </label>
+          </div>
         </div>
 
         {/* Actions */}

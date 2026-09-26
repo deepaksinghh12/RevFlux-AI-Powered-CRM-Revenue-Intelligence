@@ -574,6 +574,10 @@ export default function Leads() {
         open={Boolean(drawerLead)}
         onClose={() => setDrawerLead(null)}
         lead={drawerLead}
+        onUpdate={(updatedLead) => {
+          setDrawerLead(updatedLead);
+          setLeads((prev) => prev.map((l) => (l._id === updatedLead._id ? updatedLead : l)));
+        }}
         onEdit={openEdit}
         onDelete={setToDelete}
       />

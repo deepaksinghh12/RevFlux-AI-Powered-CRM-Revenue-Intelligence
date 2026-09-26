@@ -19,6 +19,8 @@ export const leadsApi = {
   reorder: (updates) => api.patch("/leads/reorder", { updates }),
   sendEmail: (id, data) => api.post(`/leads/${id}/send-email`, data),
   bulkCreate: (data) => api.post("/leads/bulk", data),
+  uploadAttachment: (id, formData) => api.post(`/leads/${id}/attachments`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
+  deleteAttachment: (id, attachmentId) => api.delete(`/leads/${id}/attachments/${attachmentId}`),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */
