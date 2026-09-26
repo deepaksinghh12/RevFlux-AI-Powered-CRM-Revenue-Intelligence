@@ -4,6 +4,7 @@ import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { Resend } from "resend";
+import { getIO } from "../utils/socket.js";
 
 // ===============================
 // GET ALL LEADS
@@ -164,6 +165,8 @@ export const updateLead = asyncHandler(async (req, res) => {
     "order",
   ];
 
+  const oldStatus = lead.status;
+  
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined) {
       if (field === "name") {
@@ -185,6 +188,18 @@ export const updateLead = asyncHandler(async (req, res) => {
   });
 
   await lead.save();
+
+  if (oldStatus !== "Won" && lead.status === "Won") {
+    try {
+      getIO().to(req.user._id.toString()).emit("notification", {
+        type: "success",
+        title: "Deal Closed!",
+        message: `${lead.name} just moved to Won! ($${lead.value})`,
+      });
+    } catch (err) {
+      console.error("Socket error", err);
+    }
+  }
 
   res.json({
     success: true,

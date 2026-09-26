@@ -9,6 +9,7 @@ import {
   DropdownSeparator,
 } from "../ui";
 import { useAuth } from "../../context/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 import { cn } from "../../lib/utils";
 
 /* Centered text links — a subset of the primary nav, rendered in a white pill
@@ -23,6 +24,7 @@ const LINKS = [
 
 export function TopNav({ onMenuClick }) {
   const { user, logout } = useAuth();
+  const { unreadCount, clearUnread } = useSocket();
   const navigate = useNavigate();
 
   return (
@@ -72,9 +74,13 @@ export function TopNav({ onMenuClick }) {
         <IconButton aria-label="Search" className="hidden sm:inline-flex">
           <Search className="h-[18px] w-[18px]" />
         </IconButton>
-        <IconButton aria-label="Notifications" className="relative">
+        <IconButton aria-label="Notifications" className="relative" onClick={clearUnread}>
           <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-surface" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[9px] font-bold text-white ring-2 ring-surface">
+              {unreadCount}
+            </span>
+          )}
         </IconButton>
 
         <Dropdown

@@ -67,13 +67,19 @@ app.use(errorHandler);
 
 // -------------------- Boot -------------------- //
 
+import http from "http";
+import { initSocket } from "./utils/socket.js";
+
 const PORT = process.env.PORT || 8080;
+
+const server = http.createServer(app);
+initSocket(server);
 
 const start = async () => {
   try {
     await connectDB();
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`RevFlux API running on http://localhost:${PORT}`);
     });
   } catch (err) {
