@@ -100,34 +100,35 @@ export default function Dashboard() {
         <div className="space-y-5 lg:col-span-3">
           <HeroCard value={stats.pipelineValue} />
 
-          <Card className="p-5">
-            <p className="text-sm text-ink-soft">Weekly Revenue</p>
-            <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="font-display text-2xl font-bold text-ink">
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="p-5">
+              <p className="text-sm text-ink-soft">Revenue Won</p>
+              <p className="mt-2 font-display text-xl font-bold text-ink">
                 {currency(stats.revenueWon, { compact: true })}
               </p>
-              <Badge className="bg-brand-50 text-brand-700">
-                <ArrowUpRight className="h-3 w-3" /> 12.8%
-              </Badge>
-            </div>
-          </Card>
+            </Card>
 
-          {/* Conversion stat */}
-          <Card className="p-6">
-            <SectionHeading icon={Target} title="Conversion" subtitle="Win rate" />
-            <div className="mt-4 flex items-end gap-2">
-              <p className="font-display text-3xl font-bold text-ink">
-                {stats.conversionRate ?? 0}
-                <span className="text-xl text-ink-soft">%</span>
+            <Card className="p-5">
+              <p className="text-sm text-ink-soft">Forecasted</p>
+              <p className="mt-2 font-display text-xl font-bold text-ink">
+                {currency(stats.revenueForecast ?? 0, { compact: true })}
               </p>
-              <Badge className="mb-1 bg-brand-50 text-brand-700">
-                <ArrowUpRight className="h-3 w-3" /> 4.1%
-              </Badge>
-            </div>
-            <p className="mt-1 text-sm text-ink-soft">
-              {stats.totalLeads ?? 0} leads · {stats.openTasks ?? 0} open tasks
-            </p>
-          </Card>
+            </Card>
+
+            <Card className="p-5">
+              <p className="text-sm text-ink-soft">Win Rate</p>
+              <p className="mt-2 font-display text-xl font-bold text-ink">
+                {stats.conversionRate ?? 0}%
+              </p>
+            </Card>
+
+            <Card className="p-5">
+              <p className="text-sm text-ink-soft">Deal Cycle</p>
+              <p className="mt-2 font-display text-xl font-bold text-ink">
+                {stats.avgDealCycle ?? 0} <span className="text-sm font-medium text-ink-soft">days</span>
+              </p>
+            </Card>
+          </div>
 
           <UpcomingTasks tasks={tasks} />
           <TopContactsCard contacts={contacts} />
@@ -197,7 +198,7 @@ export default function Dashboard() {
           </Card>
 
           <AiInsightsCard />
-          <LeadsBySource leads={leads} />
+          <WinLossBySource data={data?.winLossBySource} />
           <TopDeals leads={leads} />
         </div>
       </div>
@@ -252,60 +253,31 @@ function PipelineByStage({ pipeline, className }) {
   );
 }
 
-/* ── Leads by source (donut chart) ──────────────────────────────────── */
-function LeadsBySource({ leads }) {
-  // Group leads by their source field.
-  const grouped = leads.reduce((acc, l) => {
-    const key = l.source || "Other";
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-  const dataset = Object.entries(grouped).map(([name, value]) => ({ name, value }));
-
+/* ── Win/Loss by Source ──────────────────────────────────────────────── */
+function WinLossBySource({ data }) {
   return (
     <Card className="p-6">
-      <SectionHeading icon={PieIcon} title="Leads by Source" subtitle="Where leads come from" />
-      {dataset.length === 0 ? (
-        <p className="py-10 text-center text-sm text-ink-soft">No leads yet.</p>
+      <SectionHeading icon={PieIcon} title="Win / Loss by Source" subtitle="Conversion rates" />
+      {!data || data.length === 0 ? (
+        <p className="py-10 text-center text-sm text-ink-soft">No source data yet.</p>
       ) : (
-        <div className="mt-2 flex items-center gap-4">
-          <div className="relative h-36 w-36 shrink-0">
+        <div className="mt-4">
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={dataset}
-                  dataKey="value"
-                  innerRadius={44}
-                  outerRadius={66}
-                  paddingAngle={2}
-                  stroke="none"
-                >
-                  {dataset.map((_, i) => (
-                    <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<ChartTooltip unit=" leads" />} />
-              </PieChart>
+              <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="#e8eef3" strokeDasharray="4 4" />
+                <XAxis dataKey="source" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} dy={6} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                <Tooltip cursor={{ fill: "#f1f5f9" }} />
+                <Bar dataKey="won" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} name="Won Deals" />
+                <Bar dataKey="lost" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Lost Deals" />
+              </BarChart>
             </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-display text-xl font-bold text-ink">{leads.length}</span>
-              <span className="text-[11px] text-ink-soft">leads</span>
-            </div>
           </div>
-          <ul className="flex-1 space-y-1.5">
-            {dataset.map((d, i) => (
-              <li key={d.name} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-ink-soft">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }}
-                  />
-                  {d.name}
-                </span>
-                <span className="font-medium text-ink">{d.value}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2 flex items-center justify-center gap-4 text-xs text-ink-soft">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"></span> Won</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500"></span> Lost</span>
+          </div>
         </div>
       )}
     </Card>

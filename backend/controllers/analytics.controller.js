@@ -103,6 +103,52 @@ export const getOverview = asyncHandler(async (req, res) => {
       updatedAt: l.updatedAt,
     }));
 
+  // Advanced Analytics
+  const sources = {};
+  let totalDealCycleDays = 0;
+  let wonDealsCount = 0;
+  let revenueForecast = 0;
+
+  const PROBABILITIES = {
+    New: 0.1,
+    Qualified: 0.3,
+    Proposal: 0.7,
+    Won: 1.0,
+    Lost: 0.0,
+  };
+
+  for (const l of leads) {
+    // 1. Win/Loss by Source
+    const source = l.source || "Other";
+    if (!sources[source]) sources[source] = { won: 0, lost: 0, total: 0 };
+    sources[source].total += 1;
+    if (l.status === "Won") sources[source].won += 1;
+    if (l.status === "Lost") sources[source].lost += 1;
+
+    // 2. Avg Deal Cycle (Won deals)
+    if (l.status === "Won") {
+      const created = new Date(l.createdAt).getTime();
+      const updated = new Date(l.updatedAt).getTime(); // Assuming updated is when it was won
+      const days = (updated - created) / (1000 * 60 * 60 * 24);
+      totalDealCycleDays += Math.max(0, days);
+      wonDealsCount += 1;
+    }
+
+    // 3. Revenue Forecast
+    const prob = PROBABILITIES[l.status] || 0;
+    revenueForecast += (l.value || 0) * prob;
+  }
+
+  const winLossBySource = Object.entries(sources).map(([source, stats]) => ({
+    source,
+    won: stats.won,
+    lost: stats.lost,
+    total: stats.total,
+    winRate: stats.total > 0 ? Math.round((stats.won / stats.total) * 100) : 0,
+  }));
+
+  const avgDealCycle = wonDealsCount > 0 ? Math.round(totalDealCycleDays / wonDealsCount) : 0;
+
   res.json({
     success: true,
 
@@ -113,6 +159,8 @@ export const getOverview = asyncHandler(async (req, res) => {
       totalContacts: contactCount,
       openTasks,
       conversionRate,
+      avgDealCycle,
+      revenueForecast,
     },
 
     pipeline: stages.map((s) => ({
@@ -123,5 +171,6 @@ export const getOverview = asyncHandler(async (req, res) => {
 
     trend,
     recentLeads,
+    winLossBySource,
   });
 });
