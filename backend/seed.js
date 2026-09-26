@@ -165,19 +165,19 @@ const runSeed = async () => {
     if (!demoUser) {
       demoUser = await User.create({
         name: "Alex Carter",
-        email: "alex@timetoprogram.com",
+        email: "alex@revflux.com",
         password: "Test@1234",
-        company: "Time To Program",
+        company: "RevFlux",
         role: "owner",
       });
-      console.log("👤 Created demo user: Alex Carter (alex@timetoprogram.com)");
+      console.log("👤 Created demo user: Alex Carter (alex@revflux.com)");
     }
 
     // Seed data for Alex Carter
     await seedUserData(demoUser);
 
     // Also seed for any other registered users (e.g. admin@example.com)
-    const otherUsers = await User.find({ email: { $ne: "alex@timetoprogram.com" } });
+    const otherUsers = await User.find({ email: { $ne: "alex@revflux.com" } });
     for (const other of otherUsers) {
       await seedUserData(other);
     }

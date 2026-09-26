@@ -56,7 +56,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
-    service: "TTP CRM API",
+    service: "RevFlux API",
   });
 });
 
@@ -74,7 +74,7 @@ const start = async () => {
     await connectDB();
 
     app.listen(PORT, () => {
-      console.log(`TTP CRM API running on http://localhost:${PORT}`);
+      console.log(`RevFlux API running on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error("Failed to start server:", err.message);
