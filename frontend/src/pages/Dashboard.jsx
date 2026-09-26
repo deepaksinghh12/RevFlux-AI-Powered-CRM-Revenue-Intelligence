@@ -54,15 +54,19 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [contacts, setContacts] = useState([]);
-  const [leads, setLeads] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [range, setRange] = useState("monthly");
 
-  useEffect(() => {
+  const loadData = () => {
     analyticsApi.overview().then(setData).catch(() => setData(false));
     contactsApi.list().then((res) => setContacts(res.contacts || [])).catch(() => {});
     leadsApi.list().then((res) => setLeads(res.leads || [])).catch(() => {});
     tasksApi.list().then((res) => setTasks(res.tasks || [])).catch(() => {});
+    notesApi.list().then((res) => setNotes(res.notes || [])).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   if (data === null) return <DashboardSkeleton />;
@@ -103,36 +107,50 @@ export default function Dashboard() {
           <HeroCard value={stats.pipelineValue} />
 
           <div className="grid grid-cols-2 gap-4">
-            <Card className="p-5">
-              <p className="text-sm text-ink-soft">Revenue Won</p>
-              <p className="mt-2 font-display text-xl font-bold text-ink">
+            <Card className="p-4">
+              <p className="text-xs text-ink-soft">Revenue Won</p>
+              <p className="mt-1 font-display text-lg font-bold text-emerald-600">
                 {currency(stats.revenueWon, { compact: true })}
               </p>
             </Card>
 
-            <Card className="p-5">
-              <p className="text-sm text-ink-soft">Forecasted</p>
-              <p className="mt-2 font-display text-xl font-bold text-ink">
+            <Card className="p-4">
+              <p className="text-xs text-ink-soft">Forecasted</p>
+              <p className="mt-1 font-display text-lg font-bold text-ink">
                 {currency(stats.revenueForecast ?? 0, { compact: true })}
               </p>
             </Card>
 
-            <Card className="p-5">
-              <p className="text-sm text-ink-soft">Win Rate</p>
-              <p className="mt-2 font-display text-xl font-bold text-ink">
+            <Card className="p-4">
+              <p className="text-xs text-ink-soft">Win Rate</p>
+              <p className="mt-1 font-display text-lg font-bold text-ink">
                 {stats.conversionRate ?? 0}%
               </p>
             </Card>
 
-            <Card className="p-5">
-              <p className="text-sm text-ink-soft">Deal Cycle</p>
-              <p className="mt-2 font-display text-xl font-bold text-ink">
-                {stats.avgDealCycle ?? 0} <span className="text-sm font-medium text-ink-soft">days</span>
+            <Card className="p-4">
+              <p className="text-xs text-ink-soft">Deal Cycle</p>
+              <p className="mt-1 font-display text-lg font-bold text-ink">
+                {stats.avgDealCycle ?? 0} <span className="text-xs font-normal text-ink-soft">days</span>
+              </p>
+            </Card>
+
+            <Card className="p-4 border-rose-100 bg-rose-50/30">
+              <p className="text-xs font-medium text-rose-700">Overdue Tasks</p>
+              <p className="mt-1 font-display text-lg font-bold text-rose-600">
+                {tasks.filter((t) => t.status !== "Completed" && t.dueDate && isPast(new Date(t.dueDate))).length}
+              </p>
+            </Card>
+
+            <Card className="p-4 border-amber-100 bg-amber-50/30">
+              <p className="text-xs font-medium text-amber-700">Leads at Risk</p>
+              <p className="mt-1 font-display text-lg font-bold text-amber-600">
+                {leads.filter((l) => (l.aiRiskScore && l.aiRiskScore > 60) || l.status === "New").length}
               </p>
             </Card>
           </div>
 
-          <UpcomingTasks tasks={tasks} />
+          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
           <TopContactsCard contacts={contacts} />
         </div>
 
@@ -158,6 +176,8 @@ export default function Dashboard() {
               <EngagementChart trend={data?.trend || []} />
             </div>
           </Card>
+
+          <RecentActivityStream notes={notes} leads={leads} />
 
           <Card className="p-6">
             <SectionHeading
@@ -286,8 +306,8 @@ function WinLossBySource({ data }) {
   );
 }
 
-/* ── Upcoming follow-ups (next due tasks) ───────────────────────────── */
-function UpcomingTasks({ tasks }) {
+/* ── Upcoming follow-ups (next due tasks with quick checkoff) ───────────── */
+function UpcomingTasks({ tasks, onTaskComplete }) {
   const upcoming = tasks
     .filter((t) => t.status !== "Completed")
     .sort((a, b) => {
@@ -296,6 +316,16 @@ function UpcomingTasks({ tasks }) {
       return new Date(a.dueDate) - new Date(b.dueDate);
     })
     .slice(0, 4);
+
+  const handleQuickCheck = async (task) => {
+    try {
+      await tasksApi.update(task._id, { status: "Completed" });
+      toast.success(`Task "${task.title}" completed!`);
+      if (onTaskComplete) onTaskComplete();
+    } catch (err) {
+      toast.error(err?.message || "Failed to complete task");
+    }
+  };
 
   return (
     <Card className="flex flex-col p-6">
@@ -312,22 +342,19 @@ function UpcomingTasks({ tasks }) {
           {upcoming.map((t) => {
             const overdue = t.dueDate && isPast(new Date(t.dueDate));
             return (
-              <li key={t._id} className="flex items-start gap-3">
-                <span
+              <li key={t._id} className="group flex items-start gap-3 rounded-xl p-1 transition hover:bg-surface-muted/50">
+                <button
+                  onClick={() => handleQuickCheck(t)}
+                  title="Mark as completed"
                   className={cn(
-                    "mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                    overdue ? "bg-rose-50 text-rose-600" : "bg-brand-50 text-brand-600"
+                    "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line transition hover:border-brand-500 hover:bg-brand-50"
                   )}
                 >
-                  {overdue ? (
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                  ) : (
-                    <Clock className="h-3.5 w-3.5" />
-                  )}
-                </span>
+                  <span className="h-2 w-2 rounded-full bg-transparent group-hover:bg-brand-500" />
+                </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{t.title}</p>
-                  <p className={cn("text-xs", overdue ? "text-rose-600" : "text-ink-soft")}>
+                  <p className={cn("text-xs", overdue ? "text-rose-600 font-medium" : "text-ink-soft")}>
                     {t.dueDate ? shortDate(t.dueDate) : "No due date"}
                     {t.relatedLead?.name ? ` · ${t.relatedLead.name}` : ""}
                   </p>
@@ -561,6 +588,57 @@ function TopContactsCard({ contacts }) {
             View all
           </Link>
         </div>
+      )}
+    </Card>
+  );
+}
+
+function RecentActivityStream({ notes, leads }) {
+  const recentNotes = notes
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 4);
+
+  return (
+    <Card className="p-6">
+      <SectionHeading
+        icon={Clock}
+        title="Recent Activity Stream"
+        subtitle="Latest notes & communications across leads"
+        to="/notes"
+      />
+      {recentNotes.length === 0 ? (
+        <p className="py-8 text-center text-sm text-ink-soft">No recent activity logged yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {recentNotes.map((n) => {
+            const isEmail = n.content.startsWith("Email Sent:");
+            return (
+              <li key={n._id} className="flex items-start gap-3 rounded-xl border border-line/60 bg-surface p-3 shadow-2xs">
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs",
+                    isEmail ? "bg-sky-50 text-sky-600" : "bg-brand-50 text-brand-600"
+                  )}
+                >
+                  {isEmail ? "📧" : "📝"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="truncate text-xs font-semibold text-ink">
+                      {isEmail ? "Outreach Email Sent" : "Note Added"}
+                      {n.lead?.name ? ` · ${n.lead.name}` : ""}
+                    </p>
+                    <span className="text-[10px] text-ink-soft">{shortDate(n.createdAt)}</span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-soft">
+                    {n.content}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </Card>
   );
