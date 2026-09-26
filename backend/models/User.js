@@ -27,8 +27,32 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["owner", "member"],
+      enum: ["owner", "admin", "manager", "rep"],
       default: "owner",
+    },
+
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    jobTitle: {
+      type: String,
+      trim: true,
+      default: "Sales Leader",
+    },
+
+    department: {
+      type: String,
+      trim: true,
+      default: "Revenue Operations",
+    },
+
+    signature: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     company: {

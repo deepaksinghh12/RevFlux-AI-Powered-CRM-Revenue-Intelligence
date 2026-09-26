@@ -13,13 +13,19 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Convert user document into safe object for frontend
 // Password is intentionally excluded.
+// Convert user document into safe object for frontend
+// Password is intentionally excluded.
 const toClientUser = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
-  role: user.role,
-  company: user.company,
-  avatar: user.avatar,
+  role: user.role || "owner",
+  company: user.company || "",
+  avatar: user.avatar || "",
+  phone: user.phone || "",
+  jobTitle: user.jobTitle || "Sales Leader",
+  department: user.department || "Revenue Operations",
+  signature: user.signature || "",
   plan: user.plan || "free",
   subscriptionStatus: user.subscriptionStatus || "trialing",
   leadLimit: user.leadLimit ?? 50,
@@ -132,12 +138,17 @@ export const updateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  const { name, company, avatar, password } = req.body;
+  const { name, company, avatar, password, phone, jobTitle, department, signature, role } = req.body;
 
   if (name) user.name = name;
   if (company !== undefined) user.company = company;
   if (avatar !== undefined) user.avatar = avatar;
   if (password) user.password = password;
+  if (phone !== undefined) user.phone = phone;
+  if (jobTitle !== undefined) user.jobTitle = jobTitle;
+  if (department !== undefined) user.department = department;
+  if (signature !== undefined) user.signature = signature;
+  if (role && ["owner", "admin", "manager", "rep"].includes(role)) user.role = role;
 
   await user.save();
 
