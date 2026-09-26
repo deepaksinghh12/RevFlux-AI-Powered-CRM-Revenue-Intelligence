@@ -41,7 +41,7 @@ import {
   Skeleton,
   Avatar,
 } from "../components/ui";
-import { analyticsApi, contactsApi, leadsApi, tasksApi } from "../lib/services";
+import { analyticsApi, contactsApi, leadsApi, tasksApi, notesApi } from "../lib/services";
 import { currency, shortDate, timeOf } from "../lib/format";
 import { STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
 import { useAuth } from "../context/AuthContext";
