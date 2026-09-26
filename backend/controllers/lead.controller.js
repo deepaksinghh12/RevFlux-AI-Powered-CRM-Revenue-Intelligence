@@ -6,6 +6,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Resend } from "resend";
 import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";
+import { escapeRegex } from "../utils/sanitize.js";
 
 // ===============================
 // GET ALL LEADS
@@ -29,7 +30,7 @@ export const getLeads = asyncHandler(async (req, res) => {
   }
 
   if (search && search.trim()) {
-    const s = search.trim();
+    const s = escapeRegex(search.trim());
     query.$or = [
       { name: { $regex: s, $options: "i" } },
       { company: { $regex: s, $options: "i" } },

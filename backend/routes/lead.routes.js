@@ -15,6 +15,8 @@ import {
 import { protect } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
 import { checkLeadLimit } from "../middleware/plan.middleware.js";
+import { validateBody } from "../middleware/validate.middleware.js";
+import { leadSchemas } from "../validators/schemas.js";
 
 const router = Router();
 
@@ -23,7 +25,7 @@ router.use(protect);
 
 router.route("/")
   .get(getLeads)
-  .post(checkLeadLimit, createLead);
+  .post(checkLeadLimit, validateBody(leadSchemas.create), createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
 router.post("/bulk", checkLeadLimit, importLeads);

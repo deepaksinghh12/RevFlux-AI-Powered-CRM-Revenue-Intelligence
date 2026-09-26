@@ -17,6 +17,7 @@ import Onboarding from "./pages/Onboarding";
 import Demo from "./pages/Demo";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
+import Legal from "./pages/Legal";
 import { useAuth } from "./context/AuthContext";
 
 export default function App() {
@@ -29,6 +30,9 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/demo" element={<Demo />} />
+      <Route path="/privacy" element={<Legal />} />
+      <Route path="/terms" element={<Legal />} />
+      <Route path="/security" element={<Legal />} />
       <Route path="/forms/:ownerId" element={<PublicCaptureForm />} />
 
       {/* Stand-alone Onboarding Wizard */}
