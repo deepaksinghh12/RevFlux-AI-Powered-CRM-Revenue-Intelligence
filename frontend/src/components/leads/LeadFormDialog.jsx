@@ -31,11 +31,16 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
       source: lead?.source || "Website",
       value: lead?.value || 0,
       notes: lead?.notes || "",
+      tags: lead?.tags?.join(", ") || "",
     });
   }, [open, lead, reset]);
 
   const onSubmit = async (form) => {
-    const payload = { ...form, value: Number(form.value) || 0 };
+    const payload = { 
+      ...form, 
+      value: Number(form.value) || 0,
+      tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    };
     try {
       const res = editing
         ? await leadsApi.update(lead._id, payload)
@@ -95,6 +100,9 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
                 <option key={s}>{s}</option>
               ))}
             </Select>
+          </Field>
+          <Field label="Tags (comma separated)" className="col-span-2">
+            <Input placeholder="enterprise, hot, software" {...register("tags")} />
           </Field>
           <Field label="Notes" className="col-span-2">
             <Textarea placeholder="Context, next steps…" {...register("notes")} />

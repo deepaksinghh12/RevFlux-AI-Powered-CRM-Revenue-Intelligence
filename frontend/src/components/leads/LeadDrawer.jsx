@@ -65,6 +65,16 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
           <Badge>{lead.source}</Badge>
         </div>
 
+        {lead.tags?.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {lead.tags.map((tag) => (
+              <span key={tag} className="rounded bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-700">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Value */}
         <div className="mt-5 rounded-2xl bg-surface p-4 shadow-[var(--shadow-soft)]">
           <p className="text-xs uppercase tracking-wide text-ink-soft">Deal value</p>

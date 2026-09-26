@@ -49,7 +49,7 @@ import { toast } from "sonner";
 
 export default function Leads() {
   const [leads, setLeads] = useState(null);
-  const [filters, setFilters] = useState({ status: "", priority: "", source: "", search: "" });
+  const [filters, setFilters] = useState({ status: "", priority: "", source: "", search: "", tag: "" });
   const [sort, setSort] = useState({ key: "updatedAt", dir: "desc" });
   const [selected, setSelected] = useState(() => new Set());
   const [view, setView] = useState("table"); // "table" | "grid"
@@ -94,18 +94,27 @@ export default function Leads() {
     };
   }, [leads]);
 
+  const availableTags = useMemo(() => {
+    if (!leads) return [];
+    const set = new Set();
+    leads.forEach(l => l.tags?.forEach(t => set.add(t)));
+    return Array.from(set).sort();
+  }, [leads]);
+
   const filtered = useMemo(() => {
     if (!leads) return [];
     return leads.filter((l) => {
       if (filters.status && l.status !== filters.status) return false;
       if (filters.priority && l.priority !== filters.priority) return false;
       if (filters.source && l.source !== filters.source) return false;
+      if (filters.tag && (!l.tags || !l.tags.includes(filters.tag))) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
         return (
           l.name?.toLowerCase().includes(q) ||
           l.company?.toLowerCase().includes(q) ||
-          l.email?.toLowerCase().includes(q)
+          l.email?.toLowerCase().includes(q) ||
+          l.tags?.some(tag => tag.toLowerCase().includes(q))
         );
       }
       return true;
@@ -135,7 +144,7 @@ export default function Leads() {
   }, [filtered, sort]);
 
   const filtersActive =
-    filters.status || filters.priority || filters.source || filters.search;
+    filters.status || filters.priority || filters.source || filters.tag || filters.search;
 
   /* ── Handlers ─────────────────────────────────────────────────────── */
   const toggleSort = (key) =>
@@ -341,6 +350,14 @@ export default function Leads() {
               all="All sources"
               options={LEAD_SOURCES}
             />
+            {availableTags.length > 0 && (
+              <Filter
+                value={filters.tag}
+                onChange={(v) => setFilters({ ...filters, tag: v })}
+                all="All tags"
+                options={availableTags}
+              />
+            )}
           </div>
         </div>
 
@@ -366,7 +383,7 @@ export default function Leads() {
           <div className="ml-auto flex items-center gap-3">
             {filtersActive && (
               <button
-                onClick={() => setFilters({ status: "", priority: "", source: "", search: "" })}
+                onClick={() => setFilters({ status: "", priority: "", source: "", search: "", tag: "" })}
                 className="inline-flex items-center gap-1 text-sm font-medium text-ink-soft transition hover:text-ink"
               >
                 <X className="h-3.5 w-3.5" /> Clear
@@ -471,6 +488,15 @@ export default function Leads() {
                             <p className="text-xs text-ink-soft">
                               {l.company || l.email || "—"}
                             </p>
+                            {l.tags?.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {l.tags.map(tag => (
+                                  <span key={tag} className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-700">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -616,6 +642,15 @@ function LeadGridCard({ lead, selected, onToggle, onOpen, onEdit, onDelete }) {
             <p className="flex items-center gap-1 truncate text-xs text-ink-soft">
               <Building2 className="h-3 w-3 shrink-0" /> {lead.company || lead.email || "—"}
             </p>
+            {lead.tags?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {lead.tags.map(tag => (
+                  <span key={tag} className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-700">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
