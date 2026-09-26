@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
   AlertTriangle,
-  ArrowRight,
   Mail,
   Calendar,
   Eye,
   CheckCircle2,
-  TrendingDown,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card, Button, Badge, Spinner } from "../ui";
 import { aiApi } from "../../lib/services";
@@ -23,10 +23,21 @@ export function AiAttentionCenter() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Collapse / Expand toggle state
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("revflux_attention_collapsed") === "true";
+  });
+
   // Selected lead for modal action triggers
   const [selectedLead, setSelectedLead] = useState(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem("revflux_attention_collapsed", String(next));
+  };
 
   const fetchAttentionLeads = async () => {
     setLoading(true);
@@ -56,57 +67,84 @@ export function AiAttentionCenter() {
 
   return (
     <>
-      <Card className="overflow-hidden border-rose-200/80 bg-linear-to-b from-rose-50/30 via-surface to-surface p-6 shadow-[var(--shadow-card)]">
-        {/* Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-line/60 pb-4">
+      <Card className="overflow-hidden border-rose-200/80 bg-linear-to-b from-rose-50/30 via-surface to-surface p-5 shadow-[var(--shadow-card)] transition-all">
+        {/* Header Bar */}
+        <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", !collapsed && "border-b border-line/60 pb-4")}>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500 text-white shadow-xs">
-              <Sparkles className="h-5 w-5 animate-pulse" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500 text-white shadow-xs">
+              <Sparkles className="h-4 w-4 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-display text-lg font-bold text-ink">AI Attention Center</h3>
+                <h3 className="font-display text-base font-bold text-ink">AI Attention Center</h3>
                 {leads.length > 0 && (
                   <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">
                     {leads.length} Need Action
                   </span>
                 )}
               </div>
-              <p className="text-xs text-ink-soft">
-                Automated risk detection — high-value leads slipping through the pipeline
-              </p>
+              {collapsed && (
+                <p className="text-xs text-ink-soft">
+                  {leads.length > 0 ? `${leads.length} high-risk deals require attention` : "All deals on track"}
+                </p>
+              )}
+              {!collapsed && (
+                <p className="text-xs text-ink-soft">
+                  Automated risk detection — high-value leads slipping through the pipeline
+                </p>
+              )}
             </div>
           </div>
-          <Button size="sm" variant="ghost" onClick={fetchAttentionLeads} disabled={loading}>
-            Refresh
-          </Button>
+
+          <div className="flex items-center gap-2">
+            {!collapsed && (
+              <Button size="sm" variant="ghost" onClick={fetchAttentionLeads} disabled={loading}>
+                Refresh
+              </Button>
+            )}
+            <Button size="sm" variant="subtle" onClick={toggleCollapsed} className="gap-1.5">
+              {collapsed ? (
+                <>
+                  <span>Expand AI Attention</span>
+                  <ChevronDown className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <span>Hide Section</span>
+                  <ChevronUp className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
-        {/* Content Body */}
-        <div className="mt-4">
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <Spinner />
-            </div>
-          ) : leads.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-center text-sm font-medium text-emerald-600">
-              <CheckCircle2 className="h-5 w-5" />
-              <span>Great job! No high-risk or stagnant leads in your pipeline right now.</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {leads.map((lead) => (
-                <AttentionLeadCard
-                  key={lead._id}
-                  lead={lead}
-                  onEmail={() => handleOpenEmail(lead)}
-                  onSchedule={() => handleOpenSchedule(lead)}
-                  onView={() => navigate(`/leads/${lead._id}`)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Expandable Body */}
+        {!collapsed && (
+          <div className="mt-4 animate-fade-up">
+            {loading ? (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-center text-sm font-medium text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
+                <span>Great job! No high-risk or stagnant leads in your pipeline right now.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {leads.map((lead) => (
+                  <AttentionLeadCard
+                    key={lead._id}
+                    lead={lead}
+                    onEmail={() => handleOpenEmail(lead)}
+                    onSchedule={() => handleOpenSchedule(lead)}
+                    onView={() => navigate(`/leads/${lead._id}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Action Modals */}
