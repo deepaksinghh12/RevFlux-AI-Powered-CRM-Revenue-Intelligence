@@ -2,7 +2,7 @@ import Lead, { LEAD_STATUSES, LEAD_PRIORITIES } from "../models/Lead.js";
 import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/apiError.js";
+import { ApiError } from "../utils/ApiError.js";
 import { Resend } from "resend";
 import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";
@@ -329,7 +329,7 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
     // Optional: Auto-create a Note that the email was sent
     await Note.create({
       owner: req.user._id,
-      relatedLead: lead._id,
+      lead: lead._id,
       content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
     });
 

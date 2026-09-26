@@ -2,7 +2,6 @@ import cron from "node-cron";
 import Lead from "../models/Lead.js";
 
 // Run every night at midnight: "0 0 * * *"
-// For testing purposes, we could run it every minute "* * * * *" but let's stick to midnight.
 export const startAutoScoringJob = () => {
   cron.schedule("0 0 * * *", async () => {
     console.log("[Cron] Running nightly AI auto-scoring & stale check...");
@@ -26,19 +25,19 @@ export const startAutoScoringJob = () => {
 
       // Bulk update them
       const bulkOps = staleLeads.map((lead) => {
-        // Drop priority to Low
-        let newPriority = "Low";
-        
-        // Lower AI score (arbitrary penalty for being ignored)
-        let newScore = lead.aiRiskScore ? Math.max(0, lead.aiRiskScore - 15) : null;
+        // INCREASE risk score for stale leads (higher = more at risk)
+        // Use nullish coalescing to handle score of 0 correctly
+        const currentScore = lead.aiRiskScore ?? 50;
+        const newScore = Math.min(100, currentScore + 15);
 
         return {
           updateOne: {
             filter: { _id: lead._id },
             update: {
-              $set: { 
-                priority: newPriority,
-                aiRiskScore: newScore
+              $set: {
+                priority: "Low",
+                aiRiskScore: newScore,
+                updatedAt: new Date(), // Prevent re-processing every night
               },
             },
           },
@@ -47,11 +46,11 @@ export const startAutoScoringJob = () => {
 
       await Lead.bulkWrite(bulkOps);
 
-      console.log("[Cron] Successfully updated stale leads.");
+      console.log(`[Cron] Successfully updated ${staleLeads.length} stale leads.`);
     } catch (err) {
       console.error("[Cron] Error running auto-scoring job:", err);
     }
   });
 
-  console.log("🤖 Auto-scoring cron daemon initialized.");
+  console.log("🤖 Auto-scoring cron daemon initialized (runs at midnight daily).");
 };

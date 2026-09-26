@@ -1,129 +1,99 @@
-# 🚀 TTP CRM Dashboard — Roadmap & Future Upgrades
+# 🚀 RevFlux — Sellable MVP Roadmap & Technical Architecture
 
-> Last updated: September 2026  
-> Stack: **React + Vite** (frontend) · **Express + MongoDB** (backend) · **OpenRouter / gpt-4o-mini** (AI)
-
----
-
-## ✅ Already Shipped
-
-- JWT local auth (register / login / profile)
-- Full lead pipeline with Kanban drag-and-drop
-- Contacts, Notes, Tasks — full CRUD
-- AI features: Lead Summary, Email Draft, Sales Insights (via OpenRouter)
-- Seed script for demo data
-- **Google OAuth Login**: Users can sign in with Google seamlessly.
-- **Email Sending Integration**: Draft and send emails directly from the CRM using Resend.
-- **Advanced Analytics Dashboard**: Richer charts, Win/Loss by source, Deal Cycle, Revenue Forecast.
-- **Real-time Notifications**: Socket.io powered instant notifications for deals and tasks.
-- **CSV Import / Export**: PapaParse bulk upload and full table export.
-- **Tags & Smart Filters**: Multi-select tags, global search, and filtered views.
-- **File Attachments on Leads**: Upload PDFs and Images directly to leads via Cloudinary.
+> **Last updated**: September 2026  
+> **Core positioning**: *RevFlux helps small sales teams stop losing leads and follow-ups by combining CRM, AI sales intelligence, and actionable follow-up management.*  
+> **Stack**: **React 19 + Vite** (frontend) · **Node.js + Express** (backend) · **MongoDB** · **OpenRouter / gpt-4o-mini** (AI) · **Resend** (Email) · **Socket.io** (Real-time) · **Cloudinary** (Attachments)
 
 ---
 
-## 🌟 Upgrade Features (Ranked by Impact)
+## 🎯 Commercial MVP Roadmap (Sprint Execution Order)
+
+### 📌 Sprint 0 — Bug Fixes & Codebase Stabilization (DONE ✅)
+- Fix Socket.io authentication & VITE_API_URL fallback.
+- Fix CSV import crash (`fetchLeads` -> `load`).
+- Fix AI Risk Score persistence (`result.riskScore` -> `result.aiRiskScore`).
+- Standardize `ApiError.js` import casing across 7 backend modules (Linux build stability).
+- Fix Email activity Note linkage (`relatedLead` -> `lead`).
+- Fix auto-scoring cron job score direction, zero handling, and `updatedAt` infinite re-processing.
+- Fix route declaration order for Cloudinary attachments in `lead.routes.js`.
+- Fix UI rendering bugs for form fields in `PublicCaptureForm` and `TaskScheduleDialog`.
+- Clean up unused dependencies (`@google/genai`).
 
 ---
 
-### 1. 📅 Calendar & Follow-up Scheduling
-Never miss a follow-up again.
-
-- Task due dates shown on a mini calendar view
-- "Schedule follow-up" button on lead detail → creates a Task with a date
-- Optional: **Google Calendar sync** via Google Calendar API (free tier)
-- **Effort**: ~5 hours
+### 📌 Sprint 1 — Lead Detail Page (`/leads/:id`) (NEXT 🚧)
+- Dedicated full-page view for deep deal execution.
+- Activity timeline aggregating notes, tasks, emails, and stage history.
+- AI Intelligence section (Summary, Risk Score, Risk Reasons, Next Best Action).
+- Quick action toolbar: Send Email, Add Note, Create Task, Schedule Follow-up, Change Stage.
 
 ---
 
-### 2. 👥 Team & Role Management
-Scale from solo to a real sales team.
-
-- Invite team members by email
-- Roles: `owner` / `manager` / `rep`
-- Reps only see their own leads; managers see all
-- Lead assignment (`assignedTo` field on Lead model)
-- **Effort**: ~8 hours
+### 📌 Sprint 2 — AI Attention Center (Dashboard)
+- Signature sales co-pilot feature: **"What should I do TODAY?"**
+- Surfaces high-risk leads based on deterministic business rules + LLM action suggestions.
+- Explains *why* a lead is at risk (e.g. *"No activity for 9 days"*, *"Stuck in Proposal for 23 days"*).
+- Direct "Take Action" buttons (Generate Email, Create Task).
 
 ---
 
-### 3. 🤖 AI Auto-scoring (Background Job)
-Currently AI risk score is generated on demand — automate it.
-
-- Nightly cron job re-scores all leads based on activity (last contact date, notes, stage age)
-- Leads that haven't moved in 30 days get flagged as "Stale"
-- Dashboard widget: "⚠️ 4 leads need attention"
-- **Effort**: ~4 hours
+### 📌 Sprint 3 — Sales Dashboard Polish
+- Pipeline KPI tiles (Total Value, Active Leads, Won Revenue, Conversion Rate).
+- Overdue follow-ups & today's tasks widget.
+- Visual charts: Revenue forecasts, Win/Loss by source, Stage conversion progress.
 
 ---
 
-### 4. 🌐 Public Lead Capture Form
-Generate a shareable link — prospects fill a form and land directly in your pipeline.
-
-- `GET /forms/:token` — public, no auth required
-- Form submits to `POST /api/leads/capture/:token`
-- Lead auto-created with status `New`, owner set to the user who generated the link
-- **Effort**: ~4 hours
+### 📌 Sprint 4 — Multi-Step CSV Ingestion Pipeline
+- Column mapping step (`CSV Column` -> `CRM Field`).
+- Data validation & duplicate detection preview step.
+- Error-tolerant bulk import (doesn't fail the batch due to a single malformed row).
+- Success summary report.
 
 ---
 
-## 🏢 Enterprise & Scale Features (Portfolio Showpieces)
-
-These features demonstrate full-stack maturity, systems architecture, and applied AI depth.
-
-### 1. Multi-Tenancy & RBAC
-- **Workspace Model**: Shared database with `orgId` tenant scoping. Leads/Contacts belong to the Workspace, not just a single user.
-- **Role-Based Access Control**: `Admin`, `Manager`, and `Rep` roles. Reps only see their assigned leads; Managers see the whole team pipeline.
-- **Audit Logs**: Immutable history of who changed what stage/note and when.
-
-### 2. Event-Driven Architecture & Queues
-- **Background Workers**: Integrate `BullMQ` + `Redis` to move AI email generation, lead auto-scoring, and massive CSV imports off the main Node.js thread.
-- **Webhooks**: Allow outbound webhooks so tenants can subscribe to events (e.g., `lead.won`) for Zapier/Slack integration.
-
-### 3. Data & AI Maturity (RAG)
-- **Atlas Vector Search**: Generate embeddings for all lead notes and conversations.
-- **Semantic Pipeline Search**: Allow reps to ask natural language questions across the entire pipeline (e.g., *"Which leads mentioned budget concerns in the last 30 days?"*).
-- **Model Routing**: Fallback logic to cheaper models if the primary LLM fails or rate-limits.
-
-### 4. Reliability & Governance
-- **API Rate Limiting**: Per-tenant rate limits (Redis + `express-rate-limit`) to prevent noisy neighbors.
-- **Circuit Breakers**: Wrap third-party AI/Resend calls with retries and fallbacks.
-- **Field-level Encryption**: Encrypt PII (emails/phone numbers) at rest in MongoDB.
+### 📌 Sprint 5 — Onboarding & Demo Workspace
+- First-time user welcome wizard (`/onboarding`).
+- Option to seed workspace with realistic sample data in one click.
+- Interactive demo mode (`/demo`) for website visitors.
 
 ---
 
-## 🗂️ Technical Debt & Quality-of-Life
-
-| Task | Priority | Effort |
-|---|---|---|
-| Expand Profile section (settings, security, billing, **multi-currency support**) | High | 4h |
-| Add Sales Blog / Industry News widget to Dashboard | Medium | 4h |
-| Make global search bar (top nav) functional | High | 3h |
-| Implement in-app notification center | High | 6h |
-| Add pagination to leads/contacts list | High | 2h |
-| Rate limiting on AI endpoints (`express-rate-limit`) | High | 1h |
-| Input validation with `zod` on all routes | Medium | 3h |
-| Unit tests for controllers (`vitest` / `jest`) | Medium | 6h |
-| Docker Compose for one-command local setup | Low | 3h |
-| Deploy to Railway / Render (backend) + Vercel (frontend) | Medium | 4h |
+### 📌 Sprint 6 — SaaS Landing Page & Pricing
+- Conversion-focused landing page (`/`) with Hero, Problem/Solution, Screenshots, Features, and FAQ.
+- Pricing plans page (`/pricing`): Free (₹0), Starter (₹499/mo), Growth (₹1,499/mo), Business (₹2,999/mo).
 
 ---
 
-## 🧭 Suggested Sprint Order
-
-```
-Sprint 1 (this week):   Google OAuth + Email Sending
-Sprint 2:               CSV Import/Export + Tags & Filters
-Sprint 3:               Advanced Analytics + Real-time Notifications
-Sprint 4:               Team Management + File Attachments
-Sprint 5:               AI Auto-scoring + Lead Capture Form
-Ongoing:                Technical debt items above
-```
+### 📌 Sprint 7 — Billing Foundation & Monetization
+- Subscription model abstraction (plan, trial status, usage limits).
+- Indian payment gateway integration (Razorpay / Stripe).
+- Usage-based plan gating (lead limits, AI call caps).
 
 ---
 
-> **Tip:** Start with **Google OAuth** — it's the highest trust/effort ratio and makes the app feel production-ready immediately.
+### 📌 Sprint 8 — Production Hardening & Full-Stack Infrastructure
+- **Security & Validation**: Request validation with `Zod`, security headers with `helmet`, rate limiting (`express-rate-limit`) on AI and Auth endpoints.
+- **Performance & Scale**: API pagination for leads and contacts, MongoDB compound indexes.
+- **Containerization**: `Dockerfile` for backend & frontend + `docker-compose.yml` for local dev parity.
+- **Cloud Infrastructure**: AWS Free Tier deployment guide (App Runner / EC2, MongoDB Atlas, S3 / Cloudinary).
 
-> **Note on Infrastructure:** We aim to use **AWS Free Tier** services wherever possible (e.g., S3 for file storage, SES for emails if migrating from Resend, EC2/AppRunner for deployment) to keep hosting costs near zero while maintaining enterprise-grade reliability.
+---
 
-> **Note:** All third-party services currently listed (Resend, Cloudinary, Google OAuth, OpenRouter) have **generous free tiers** — you can build the entire roadmap without spending money.
+## 🏛️ Post-MVP / Scale Architecture (Future Enhancements)
+
+1. **Multi-Tenancy & Team RBAC**: Workspace model (`orgId` scoping), Roles (`Owner`, `Manager`, `Rep`), Lead assignment.
+2. **Event-Driven Architecture**: `BullMQ` + `Redis` background queue for AI scoring and bulk email delivery.
+3. **Semantic CRM (RAG)**: MongoDB Atlas Vector Search over lead notes and meeting transcripts.
+4. **WhatsApp Business API**: Inbound/outbound WhatsApp message sync into lead timeline.
+
+---
+
+## 🛠️ Full-Stack Resume Talking Points
+
+- **Frontend**: React 19, Vite, Tailwind CSS v4, `@dnd-kit` drag-and-drop, Recharts analytics, React Big Calendar.
+- **Backend Architecture**: Layered Node.js/Express architecture (Route -> Middleware -> Controller -> Service -> Model).
+- **Applied AI**: Hybrid risk scoring combining deterministic business heuristics with structured LLM JSON outputs via OpenRouter.
+- **Real-time & Async**: Socket.io room-based notifications, Node-cron background daemons, Resend email integration.
+- **Production Engineering**: Docker containerization, Zod API validation, rate-limiting, Cloudinary media storage, MongoDB index optimization.
+

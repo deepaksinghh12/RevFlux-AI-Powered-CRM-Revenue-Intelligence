@@ -2,7 +2,7 @@ import { Note } from "../models/Note.js";
 import "../models/Lead.js";
 import "../models/Contact.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/apiError.js";
+import { ApiError } from "../utils/ApiError.js";
 
 export const getNotes = asyncHandler(async (req, res) => {
   const { lead, contact, search } = req.query;

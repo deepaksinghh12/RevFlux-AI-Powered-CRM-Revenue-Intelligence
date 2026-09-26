@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Button, Input, Textarea, Spinner } from "../components/ui";
-import { CheckCircle2, Building2, User, Mail, Phone, MessageSquare } from "lucide-react";
+import { Button, Input, Textarea, Field, Spinner } from "../components/ui";
+import { CheckCircle2 } from "lucide-react";
 import api from "../lib/api";
 
 export default function PublicCaptureForm() {
@@ -26,7 +26,7 @@ export default function PublicCaptureForm() {
       await api.post(`/capture/${ownerId}`, formData);
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to submit form.");
+      setError(err?.message || "Failed to submit form.");
     } finally {
       setSubmitting(false);
     }
@@ -66,46 +66,46 @@ export default function PublicCaptureForm() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div className="space-y-4">
-            <Input
-              icon={User}
-              label="Full Name"
-              required
-              placeholder="Jane Doe"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-            <Input
-              icon={Mail}
-              type="email"
-              label="Email Address"
-              required
-              placeholder="jane@example.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-            <Input
-              icon={Phone}
-              type="tel"
-              label="Phone Number"
-              placeholder="+1 (555) 000-0000"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-            <Input
-              icon={Building2}
-              label="Company"
-              placeholder="Acme Corp"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-            />
-            <Textarea
-              icon={MessageSquare}
-              label="How can we help?"
-              placeholder="Tell us about your project or needs..."
-              rows={4}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            />
+            <Field label="Full Name">
+              <Input
+                required
+                placeholder="Jane Doe"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </Field>
+            <Field label="Email Address">
+              <Input
+                type="email"
+                required
+                placeholder="jane@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </Field>
+            <Field label="Phone Number">
+              <Input
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </Field>
+            <Field label="Company">
+              <Input
+                placeholder="Acme Corp"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              />
+            </Field>
+            <Field label="How can we help?">
+              <Textarea
+                placeholder="Tell us about your project or needs..."
+                rows={4}
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              />
+            </Field>
           </div>
 
           <Button type="submit" className="w-full" size="lg" disabled={submitting}>

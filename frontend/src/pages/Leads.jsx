@@ -278,7 +278,7 @@ export default function Leads() {
 
             const res = await leadsApi.bulkCreate({ leads: leadsToImport });
             toast.success(res.message, { id: "import" });
-            fetchLeads(); // Refresh table
+            load(); // Refresh table
           } catch (err) {
             toast.error(err.message || "Failed to import leads", { id: "import" });
           }

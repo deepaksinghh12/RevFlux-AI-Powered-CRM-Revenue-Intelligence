@@ -8,15 +8,16 @@ const SocketContext = createContext(null);
 export const useSocket = () => useContext(SocketContext);
 
 export function SocketProvider({ children }) {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user) return;
 
-    const url = import.meta.env.VITE_API_URL.replace("/api", "");
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+    const url = apiUrl.replace("/api", "");
     const s = io(url, {
       withCredentials: true,
     });
@@ -38,7 +39,7 @@ export function SocketProvider({ children }) {
     return () => {
       s.disconnect();
     };
-  }, [user, token]);
+  }, [user]);
 
   const clearUnread = () => setUnreadCount(0);
 

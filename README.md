@@ -1,82 +1,102 @@
 # RevFlux 🚀
 **AI-Powered CRM & Revenue Intelligence Platform**
 
-RevFlux is a modern, lightweight Customer Relationship Management (CRM) system built for sales teams who want to close deals faster. It unifies leads, contacts, and follow-ups, and leverages artificial intelligence to provide strategic sales insights, draft outreach emails, and score lead risks.
+> RevFlux helps small sales teams stop losing leads and follow-ups by combining CRM, AI sales intelligence, and actionable follow-up management.
 
 ---
 
-## 🏗️ Architecture
+## 🏛️ System Architecture
 
-RevFlux is built using a modern MERN-like stack with a strong emphasis on speed, free-tier cloud services, and clean UI/UX.
+RevFlux is built using a clean, layered Node.js/Express backend and React 19 frontend designed for speed, scale, and clear interview-proof software engineering principles.
 
-### Frontend (Client)
-- **Framework**: React 18 (bootstrapped with Vite)
-- **Styling**: Tailwind CSS for utility-first styling and a highly responsive design.
-- **Icons & UI**: Lucide React for consistent iconography. Custom-built components mimicking high-end fintech dashboards.
-- **Data Fetching**: Axios interceptors with local storage JWT management.
-- **Key Libraries**: `react-big-calendar` (scheduling), `papaparse` (CSV handling), `recharts` (analytics data visualization).
+```
+[ React 19 Client ]  ◄──(Axios + Socket.io)──►  [ Express API Gateway ]
+        │                                              │
+        ├── Vite + Tailwind v4                         ├── Auth (JWT + Google OAuth)
+        ├── @dnd-kit Kanban                            ├── Node-cron Background Daemon
+        ├── Recharts Analytics                         ├── Resend Email Delivery
+        └── React Big Calendar                         ├── Cloudinary Document Storage
+                                                       └── OpenRouter LLM Engine (GPT-4o-mini)
+                                                               │
+                                                               ▼
+                                                       [ MongoDB Atlas ]
+```
 
-### Backend (Server)
-- **Framework**: Node.js with Express.js
-- **Database**: MongoDB (via Mongoose ODM) with a normalized schema (`User`, `Lead`, `Contact`, `Task`, `Note`).
-- **Authentication**: Dual-layer strategy featuring local JWT-based Auth and **Google OAuth** (via `google-auth-library`).
+### Stack Breakdown
 
-### Integrations & Services
-- **AI Engine**: OpenRouter (using OpenAI's `gpt-4o-mini` model) for generating contextual intelligence.
-- **Email Delivery**: Resend API for sending real transactional emails directly from the CRM.
-
----
-
-## ✨ Core Features
-
-### 1. Lead Pipeline & Kanban
-- Visualize your deals progressing through stages (New, Qualified, Proposal, Won, Lost).
-- Toggle between a dense Table view and a Kanban Grid view.
-- Track Deal Value and calculate overall pipeline health.
-
-### 2. AI Intelligence Layer
-- **Lead Summarization**: Instantly read through a prospect's history and notes to generate a concise briefing.
-- **Next Best Action**: The AI evaluates the lead's current stage and suggests the exact next step to take.
-- **Risk Scoring**: AI assigns a 0-100 risk score to prevent deals from slipping through the cracks.
-- **AI Email Drafting**: Generate hyper-personalized sales outreach emails based on the lead's context, then send them instantly via Resend.
-
-### 3. Smart Filtering & Organization
-- **Custom Tags**: Add custom tags (`enterprise`, `hot`, `software`) to leads.
-- **Unified Search**: Search instantly by name, company, email, or tag.
-- **CSV Data Portability**: Import thousands of leads instantly using the CSV Uploader, or export your filtered views.
-
-### 4. Calendar & Task Management
-- Full-screen Calendar UI toggling between Month/Week/Day views.
-- Schedule follow-ups linked to specific leads.
-- Never miss a meeting with priority-color-coded events.
+- **Frontend**: React 19, Vite, Tailwind CSS v4, `@dnd-kit` drag-and-drop, Recharts, React Big Calendar, Lucide React, PapaParse.
+- **Backend Architecture**: Layered Express architecture (`Route` -> `Middleware` -> `Controller` -> `Service` -> `Mongoose Model`).
+- **Database**: MongoDB Atlas with schemas for `User`, `Lead`, `Contact`, `Task`, `Note`.
+- **Authentication**: JWT authentication with local password hashing (`bcryptjs`) & Google OAuth ID token verification (`google-auth-library`).
+- **AI Intelligence**: OpenRouter API (`openai/gpt-4o-mini`) using structured JSON outputs for lead briefings, hybrid risk scoring, and email drafting.
+- **Real-Time & Async**: Socket.io room-based instant notifications, Node-cron background jobs for automated stale lead scoring, and Resend API for transactional email delivery.
+- **File Storage**: Cloudinary v2 SDK with Multer memory storage.
 
 ---
 
-## 🚀 Getting Started
+## ✨ Key Features & Capabilities
+
+### 1. 🎯 AI Attention Center & Risk Scoring
+- Hybrid risk scoring engine combining deterministic business rules (inactivity duration, stage stagnation, missing follow-ups) with LLM action recommendations.
+- Dashboard Attention Center surfacing high-risk deals with explainable reasons and one-click action triggers.
+
+### 2. 📋 Lead Pipeline & Kanban Board
+- Interactive drag-and-drop Kanban pipeline using `@dnd-kit`.
+- Dual view: Dense Table vs. Visual Kanban with live stage updates and bulk operations.
+- Tagging, multi-field search, priority indicators, and deal value metrics.
+
+### 3. 📅 Follow-up Scheduling & Calendar
+- Full-screen task calendar powered by `react-big-calendar`.
+- Timeline-grouped task management (Overdue, Due Today, Upcoming, Completed).
+- One-click follow-up scheduling directly from lead details.
+
+### 4. ✉️ AI-Assisted Email Communication
+- AI-generated personalized outreach drafts injected with real lead and sender profile data.
+- Send real emails directly via Resend with auto-created timeline Notes for full audit trails.
+
+### 5. 📂 Bulk Data Ingestion & Storage
+- CSV bulk lead import and export with client-side parsing.
+- Drag-and-drop file attachments (PDFs, Docs, Images) stored securely on Cloudinary.
+
+### 6. 🌐 Public Lead Capture
+- Shareable unauthenticated lead capture form (`/forms/:ownerId`) with instant Socket.io notification to the lead owner's dashboard upon submission.
+
+---
+
+## 🛠️ Local Development Setup
 
 ### Prerequisites
 - Node.js (v18+)
-- MongoDB connection string (Atlas or Local)
+- MongoDB Atlas cluster or local MongoDB instance
 
 ### 1. Backend Setup
 ```bash
 cd backend
 npm install
 ```
-Create a `.env` file in the `backend` directory:
+
+Create `.env` in `backend/`:
 ```env
 PORT=8080
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 MONGO_URI=your-mongodb-uri
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
+JWT_SECRET=your-jwt-secret
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_MODEL=openai/gpt-4o-mini
 RESEND_API_KEY=your-resend-key
 GOOGLE_CLIENT_ID=your-google-client-id
+CLOUDINARY_CLOUD_NAME=your-cloudinary-name
+CLOUDINARY_API_KEY=your-cloudinary-key
+CLOUDINARY_API_SECRET=your-cloudinary-secret
 ```
-Start the backend server:
+
+Seed initial demo data:
+```bash
+npm run seed
+```
+
+Start dev server:
 ```bash
 npm run dev
 ```
@@ -86,26 +106,19 @@ npm run dev
 cd frontend
 npm install
 ```
-Create a `.env` file in the `frontend` directory:
+
+Create `.env` in `frontend/`:
 ```env
 VITE_API_URL=http://localhost:8080/api
 VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ```
-Start the Vite development server:
+
+Start dev server:
 ```bash
 npm run dev
 ```
 
 ---
 
-## 🔮 Future Upcomings (Roadmap)
-
-RevFlux is constantly evolving. Here is a look at what is coming next in our sprints:
-
-1. **📊 Advanced Analytics Dashboard**: Adding deeper insights into Win/Loss rates, average deal cycle times, and top-performing months.
-2. **🔔 Real-time Notifications**: Implementing WebSockets (`Socket.io`) for live in-app alerts when tasks are due or deals close.
-3. **🏢 Enterprise Multi-Tenancy**: Shifting to an `orgId` scoped Workspace model with Admin/Manager/Rep RBAC.
-4. **⚙️ Event-Driven AI Queues**: Integrating `BullMQ` and Redis to handle heavy AI tasks asynchronously.
-5. **🧠 Semantic Vector Search (RAG)**: Using MongoDB Atlas Vector Search to allow reps to query the pipeline using natural language ("Which leads mentioned budget limits?").
-
-*(For detailed timelines, see `ROADMAP.md`)*
+## 📄 License & Roadmap
+For detailed sprint timelines, commercial positioning, and enterprise architecture roadmap, see [`ROADMAP.md`](./ROADMAP.md).

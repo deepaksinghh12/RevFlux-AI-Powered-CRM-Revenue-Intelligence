@@ -6,7 +6,7 @@ import {
   generateSalesInsights,
 } from "../services/ai.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/apiError.js";
+import { ApiError } from "../utils/ApiError.js";
 
 // ===============================
 // HELPER: RESOLVE LEAD
@@ -40,7 +40,7 @@ export const getAiStatus = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     configured: isAIConfigured(),
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    model: process.env.OPENROUTER_MODEL || "gpt-4o-mini",
   });
 });
 
@@ -56,7 +56,7 @@ export const aiLead = asyncHandler(async (req, res) => {
   // If this is a saved MongoDB document, persist the AI score and summary
   if (lead && typeof lead.save === "function") {
     lead.aiSummary = result.summary;
-    lead.aiRiskScore = result.riskScore;
+    lead.aiRiskScore = result.aiRiskScore;
     await lead.save();
   }
 
@@ -76,7 +76,7 @@ export const leadSummary = asyncHandler(async (req, res) => {
 
   if (lead && typeof lead.save === "function") {
     lead.aiSummary = result.summary;
-    lead.aiRiskScore = result.riskScore;
+    lead.aiRiskScore = result.aiRiskScore;
     await lead.save();
   }
 

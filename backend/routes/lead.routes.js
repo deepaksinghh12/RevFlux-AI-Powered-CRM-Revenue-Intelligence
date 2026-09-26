@@ -30,6 +30,13 @@ router.put("/reorder", reorderLeads);
 
 router.post("/:id/send-email", sendLeadEmail);
 
+// Attachment routes (must be before the generic /:id route)
+router.route("/:id/attachments")
+  .post(upload.single("file"), uploadAttachment);
+
+router.route("/:id/attachments/:attachmentId")
+  .delete(deleteAttachment);
+
 router.route("/:id")
   .get(getLead)
   .put(updateLead)
@@ -37,9 +44,3 @@ router.route("/:id")
   .delete(deleteLead);
 
 export default router;
-
-router.route("/:id/attachments")
-  .post(upload.single("file"), uploadAttachment);
-
-router.route("/:id/attachments/:attachmentId")
-  .delete(deleteAttachment);
