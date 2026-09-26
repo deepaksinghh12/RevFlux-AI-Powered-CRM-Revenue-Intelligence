@@ -14,8 +14,12 @@ import taskRoutes from "./routes/task.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import captureRoutes from "./routes/capture.routes.js";
+import { startAutoScoringJob } from "./jobs/autoScoring.js";
 
 const app = express();
+
+// Initialize background jobs
+startAutoScoringJob();
 
 // -------------------- Middleware -------------------- //
 
