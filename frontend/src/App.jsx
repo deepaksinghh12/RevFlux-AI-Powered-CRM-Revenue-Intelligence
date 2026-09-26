@@ -11,6 +11,7 @@ import Pipeline from "./pages/Pipeline";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
+import PublicCaptureForm from "./pages/PublicCaptureForm";
 
 /* Central route table. Auth routes are public; everything else is wrapped in
    the authenticated AppLayout behind <ProtectedRoute>. */
@@ -20,6 +21,7 @@ export default function App() {
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forms/:ownerId" element={<PublicCaptureForm />} />
 
       {/* Private */}
       <Route

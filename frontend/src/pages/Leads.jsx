@@ -18,6 +18,7 @@ import {
   Download,
   Upload,
   Building2,
+  Share,
 } from "lucide-react";
 import Papa from "papaparse";
 import { PageHeader } from "../components/common/PageHeader";
@@ -46,8 +47,10 @@ import {
 } from "../lib/constants";
 import { cn } from "../lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
 
 export default function Leads() {
+  const { user } = useAuth();
   const [leads, setLeads] = useState(null);
   const [filters, setFilters] = useState({ status: "", priority: "", source: "", search: "", tag: "" });
   const [sort, setSort] = useState({ key: "updatedAt", dir: "desc" });
@@ -288,15 +291,32 @@ export default function Leads() {
     input.click();
   };
 
+  const copyCaptureLink = () => {
+    const url = `${window.location.origin}/forms/${user._id}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Lead capture link copied to clipboard!");
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="Leads" subtitle="Track and qualify every opportunity.">
-        <Button variant="outline" onClick={importCSV}>
-          <Upload className="h-4 w-4" /> Import
+        <Button variant="outline" onClick={copyCaptureLink}>
+          <Share className="h-4 w-4" /> Share form
         </Button>
-        <Button variant="outline" onClick={exportCSV}>
-          <Download className="h-4 w-4" /> Export
-        </Button>
+        <Dropdown
+          trigger={
+            <Button variant="outline">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          }
+        >
+          <DropdownItem onClick={importCSV}>
+            <Upload className="h-4 w-4" /> Import CSV
+          </DropdownItem>
+          <DropdownItem onClick={exportCSV}>
+            <Download className="h-4 w-4" /> Export CSV
+          </DropdownItem>
+        </Dropdown>
         <Button onClick={openNew}>
           <Plus className="h-4 w-4" /> Add lead
         </Button>
