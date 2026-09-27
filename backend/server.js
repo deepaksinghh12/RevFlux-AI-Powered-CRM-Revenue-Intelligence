@@ -12,8 +12,8 @@ import contactRoutes from "./routes/contact.routes.js";
 import noteRoutes from "./routes/note.routes.js";
 import taskRoutes from "./routes/task.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
-import analyticsRoutes from "./routes/analytics.routes.js";
 import captureRoutes from "./routes/capture.routes.js";
+import outreachRoutes from "./routes/outreach.routes.js";
 import { startAutoScoringJob } from "./jobs/autoScoring.js";
 
 const app = express();
@@ -58,6 +58,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/capture", captureRoutes);
+app.use("/api/outreach", outreachRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

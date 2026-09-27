@@ -6,6 +6,7 @@ import {
   KanbanSquare,
   StickyNote,
   CalendarCheck,
+  Mail,
   Settings,
   LogOut,
   Sparkles,
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { to: "/notes", label: "Notes", icon: StickyNote },
   { to: "/tasks", label: "Follow-ups", icon: CalendarCheck },
+  { to: "/outreach", label: "AI Outreach", icon: Mail },
 ];
 
 export function Sidebar({ onNavigate }) {

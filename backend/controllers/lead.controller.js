@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";
 import { escapeRegex } from "../utils/sanitize.js";
+import { triggerCadenceForLead } from "./outreach.controller.js";
 
 // ===============================
 // GET ALL LEADS
@@ -255,6 +256,15 @@ export const updateLead = asyncHandler(async (req, res) => {
   });
 
   await lead.save();
+
+  if (oldStatus !== lead.status) {
+    triggerCadenceForLead({
+      userId: req.user._id,
+      lead,
+      triggerType: "stage_change",
+      newStage: lead.status,
+    });
+  }
 
   if (oldStatus !== "Won" && lead.status === "Won") {
     try {

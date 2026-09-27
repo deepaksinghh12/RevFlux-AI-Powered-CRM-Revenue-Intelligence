@@ -148,7 +148,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   if (jobTitle !== undefined) user.jobTitle = jobTitle;
   if (department !== undefined) user.department = department;
   if (signature !== undefined) user.signature = signature;
-  if (role && ["owner", "admin", "manager", "rep"].includes(role)) user.role = role;
+  if (role && ["superadmin", "owner", "ops_head", "manager", "rep"].includes(role)) user.role = role;
 
   await user.save();
 

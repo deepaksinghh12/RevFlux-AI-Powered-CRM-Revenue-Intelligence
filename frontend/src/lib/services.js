@@ -65,3 +65,19 @@ export const aiApi = {
 export const analyticsApi = {
   overview: () => api.get("/analytics/overview"),
 };
+
+/* ── Outreach & Templates ───────────────────────────────────────────── */
+export const outreachApi = {
+  getTemplates: () => api.get("/outreach/templates"),
+  createTemplate: (data) => api.post("/outreach/templates", data),
+  updateTemplate: (id, data) => api.put(`/outreach/templates/${id}`, data),
+  deleteTemplate: (id) => api.delete(`/outreach/templates/${id}`),
+
+  getSequences: () => api.get("/outreach/sequences"),
+  createSequence: (data) => api.post("/outreach/sequences", data),
+  toggleSequence: (id) => api.put(`/outreach/sequences/${id}/toggle`),
+
+  getQueue: () => api.get("/outreach/queue"),
+  sendQueueItem: (id) => api.post(`/outreach/queue/${id}/send`),
+  dismissQueueItem: (id) => api.delete(`/outreach/queue/${id}`),
+};
