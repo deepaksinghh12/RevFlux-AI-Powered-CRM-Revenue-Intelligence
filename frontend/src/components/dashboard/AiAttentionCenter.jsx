@@ -23,15 +23,15 @@ export function AiAttentionCenter() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Collapse / Expand toggle state
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("revflux_attention_collapsed") === "true";
-  });
-
   // Selected lead for modal action triggers
   const [selectedLead, setSelectedLead] = useState(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+
+  // Collapse / Expand toggle state (defaults to false/expanded)
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("revflux_attention_collapsed") === "true";
+  });
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -105,12 +105,12 @@ export function AiAttentionCenter() {
             <Button size="sm" variant="subtle" onClick={toggleCollapsed} className="gap-1.5">
               {collapsed ? (
                 <>
-                  <span>Expand AI Attention</span>
+                  <span>Expand</span>
                   <ChevronDown className="h-4 w-4" />
                 </>
               ) : (
                 <>
-                  <span>Hide Section</span>
+                  <span>Hide</span>
                   <ChevronUp className="h-4 w-4" />
                 </>
               )}

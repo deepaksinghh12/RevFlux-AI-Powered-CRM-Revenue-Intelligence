@@ -63,7 +63,7 @@ export const aiApi = {
 
 /* ── Analytics ──────────────────────────────────────────────────────── */
 export const analyticsApi = {
-  overview: () => api.get("/analytics/overview"),
+  overview: (params) => api.get("/analytics/overview", { params }),
 };
 
 /* ── Outreach & Templates ───────────────────────────────────────────── */

@@ -15,6 +15,7 @@ import aiRoutes from "./routes/ai.routes.js";
 import captureRoutes from "./routes/capture.routes.js";
 import outreachRoutes from "./routes/outreach.routes.js";
 import teamRoutes from "./routes/team.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 import { startAutoScoringJob } from "./jobs/autoScoring.js";
 
 const app = express();

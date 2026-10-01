@@ -3,11 +3,11 @@ import { Lead } from "../models/Lead.js";
 import { Contact } from "../models/Contact.js";
 import { Task } from "../models/Task.js";
 
-const lastSixMonths = () => {
+const getMonths = (count) => {
   const result = [];
   const now = new Date();
 
-  for (let i = 5; i >= 0; i--) {
+  for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
 
     result.push({
@@ -21,6 +21,8 @@ const lastSixMonths = () => {
 
 export const getOverview = asyncHandler(async (req, res) => {
   const owner = req.user._id;
+  const range = req.query.range || "monthly";
+  const monthCount = range === "annually" ? 12 : 6;
 
   const [leads, contactCount, openTasks] = await Promise.all([
     Lead.find({ owner }),
@@ -62,7 +64,7 @@ export const getOverview = asyncHandler(async (req, res) => {
   const conversionRate =
     closed > 0 ? Math.round((won / closed) * 100) : 0;
 
-  const months = lastSixMonths();
+  const months = getMonths(monthCount);
 
   const trend = months.map(({ key, label }) => ({
     month: label,

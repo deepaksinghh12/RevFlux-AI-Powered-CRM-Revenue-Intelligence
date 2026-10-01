@@ -224,59 +224,104 @@ export const seedDemoData = asyncHandler(async (req, res) => {
     Task.deleteMany({ owner: userId }),
   ]);
 
-  const sampleLeads = [
-    { name: "Dribbble Design", company: "Acme Corp", status: "New", priority: "High", source: "Website", value: 89345, ageDays: 4 },
-    { name: "Google Pay Integration", company: "Globex", status: "Qualified", priority: "High", source: "Referral", value: 124000, ageDays: 12 },
-    { name: "Amazon Cloud Analytics", company: "Initech", status: "Proposal", priority: "Medium", source: "Cold Outreach", value: 32123, ageDays: 18 },
-    { name: "Datadog Observability", company: "Stark Industries", status: "New", priority: "Medium", source: "Website", value: 45000, ageDays: 2 },
-    { name: "Stripe Billing", company: "Umbrella Co", status: "Won", priority: "High", source: "Event", value: 76500, ageDays: 45 },
-    { name: "Airtable Automation", company: "Wayne Ent.", status: "Qualified", priority: "High", source: "Event", value: 67000, ageDays: 38 },
-    { name: "Snowflake Warehouse", company: "Cyberdyne", status: "Proposal", priority: "High", source: "Referral", value: 152000, ageDays: 52 },
-    { name: "HubSpot Marketing", company: "Tyrell Corp", status: "Won", priority: "Medium", source: "Event", value: 88000, ageDays: 70 },
-  ];
-
   const createdLeads = [];
-  for (const item of sampleLeads) {
+  const createdContacts = [];
+  const companies = ["Acme Corp", "Globex", "Initech", "Stark Industries", "Umbrella Co", "Wayne Ent.", "Cyberdyne", "Tyrell Corp", "Massive Dynamic", "Hooli", "Pied Piper", "Soylent", "Oscorp"];
+  const sources = ["Website", "Referral", "Cold Outreach", "Event", "LinkedIn"];
+  const statuses = ["New", "Qualified", "Proposal", "Won", "Lost"];
+
+  // Generate 80 random leads spanning up to 2 years (730 days)
+  for (let i = 0; i < 80; i++) {
+    const ageDays = Math.floor(Math.random() * 730);
+    const company = companies[Math.floor(Math.random() * companies.length)];
+    const source = sources[Math.floor(Math.random() * sources.length)];
+    const value = Math.floor(Math.random() * 200000) + 15000;
+    
+    // Logic for status based on age
+    let status;
+    if (ageDays < 15) {
+      status = statuses[Math.floor(Math.random() * 3)]; // New, Qualified, Proposal
+    } else {
+      status = Math.random() > 0.4 ? "Won" : "Lost";
+    }
+
     const doc = await Lead.create({
       owner: userId,
-      name: item.name,
-      company: item.company,
-      email: `${item.name.toLowerCase().replace(/[^a-z]/g, "")}@${item.company.toLowerCase().replace(/[^a-z]/g, "")}.com`,
-      status: item.status,
-      priority: item.priority,
-      source: item.source,
-      value: item.value,
+      name: `Lead ${company} ${i + 1}`,
+      company: company,
+      email: `contact${i}@${company.toLowerCase().replace(/[^a-z]/g, "")}.com`,
+      status: status,
+      priority: Math.random() > 0.7 ? "High" : "Medium",
+      source: source,
+      value: value,
       notes: "Sample lead seeded during workspace onboarding.",
-      tags: ["sample", "demo"],
-      aiRiskScore: item.status === "Won" ? 10 : 35,
-      createdAt: daysAgo(item.ageDays),
+      tags: ["sample", status.toLowerCase()],
+      aiRiskScore: status === "Won" ? 10 : (status === "Lost" ? 90 : Math.floor(Math.random() * 60) + 20),
+      createdAt: daysAgo(ageDays),
+      updatedAt: daysAgo(Math.max(0, ageDays - Math.floor(Math.random() * 30))),
     });
     createdLeads.push(doc);
-  }
 
-  if (createdLeads.length > 0) {
-    await Task.create({
+    // Create 1-2 Contacts per lead
+    const contactCount = Math.floor(Math.random() * 2) + 1;
+    for (let c = 0; c < contactCount; c++) {
+      createdContacts.push(
+        await Contact.create({
+          owner: userId,
+          name: `Exec ${c + 1} - ${company}`,
+          email: `exec${c + 1}@${company.toLowerCase().replace(/[^a-z]/g, "")}.com`,
+          phone: `+91 98${Math.floor(10000000 + Math.random() * 90000000)}`,
+          company: company,
+          jobTitle: c === 0 ? "CEO" : "VP of Sales",
+          createdAt: daysAgo(ageDays),
+        })
+      );
+    }
+
+    // Create a few Notes for this lead
+    await Note.create({
       owner: userId,
-      title: "Schedule product demo",
-      relatedLead: createdLeads[0]._id,
-      status: "Pending",
-      priority: "High",
-      dueDate: daysAhead(2),
+      relatedLead: doc._id,
+      content: `Initial discovery call with ${company}. They are looking for a new solution to scale operations. Budget looks promising.`,
+      createdAt: daysAgo(ageDays - 1),
     });
-    await Task.create({
-      owner: userId,
-      title: "Send pricing proposal",
-      relatedLead: createdLeads[1]._id,
-      status: "Pending",
-      priority: "Medium",
-      dueDate: daysAhead(4),
-    });
+
+    if (status === "Won") {
+      await Note.create({
+        owner: userId,
+        relatedLead: doc._id,
+        content: `Contract signed! Excellent closing from the team.`,
+        createdAt: daysAgo(Math.max(0, ageDays - 20)),
+      });
+    }
+
+    // Create Tasks for this lead
+    if (status === "New" || status === "Qualified" || status === "Proposal") {
+      await Task.create({
+        owner: userId,
+        title: `Follow up with ${company} on proposal`,
+        relatedLead: doc._id,
+        status: "Pending",
+        priority: "High",
+        dueDate: daysAhead(Math.floor(Math.random() * 7) + 1),
+      });
+    } else {
+      await Task.create({
+        owner: userId,
+        title: `Onboarding check-in for ${company}`,
+        relatedLead: doc._id,
+        status: "Completed",
+        priority: "Medium",
+        dueDate: daysAgo(Math.floor(Math.random() * 30)),
+      });
+    }
   }
 
   res.json({
     success: true,
-    message: "Sample demo workspace seeded successfully!",
+    message: "Sample demo workspace seeded successfully with 2 years of history!",
     leadsCount: createdLeads.length,
+    contactsCount: createdContacts.length,
   });
 });
 

@@ -14,6 +14,7 @@ import {
   Clock,
   AlertTriangle,
   Building2,
+  Newspaper,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -28,6 +29,8 @@ import {
   Cell,
   PieChart,
   Pie,
+  ComposedChart,
+  Line,
 } from "recharts";
 import { format, isPast } from "date-fns";
 import { HeroCard } from "../components/dashboard/HeroCard";
@@ -50,6 +53,44 @@ import { cn } from "../lib/utils";
 /* Donut palette — sky-blue family used for the "Leads by Source" chart. */
 const SOURCE_COLORS = ["#0ea5e9", "#38bdf8", "#0369a1", "#7dd3fc", "#0284c7", "#bae6fd"];
 
+function GreetingHeader({ user }) {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hour = time.getHours();
+  let greeting = "Good evening";
+  if (hour < 5) greeting = "Good midnight";
+  else if (hour < 12) greeting = "Good morning";
+  else if (hour < 17) greeting = "Good afternoon";
+
+  const timeString = time.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-ink flex items-center gap-2">
+          {greeting}, <span className="capitalize">{user?.name?.split(" ")[0]}</span>!
+        </h1>
+        <p className="text-sm text-ink-soft mt-1 flex items-center gap-2">
+          <Clock className="h-4 w-4" /> {timeString} - Here is your focus for today.
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <Link
+          to="/leads"
+          className="brand-gradient brand-gradient-hover inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-sm transition"
+        >
+          <Plus className="h-4 w-4" /> Add New Lead
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -60,7 +101,6 @@ export default function Dashboard() {
   const [range, setRange] = useState("monthly");
 
   const loadData = () => {
-    analyticsApi.overview().then(setData).catch(() => setData(false));
     contactsApi.list().then((res) => setContacts(res.contacts || [])).catch(() => {});
     leadsApi.list().then((res) => setLeads(res.leads || [])).catch(() => {});
     tasksApi.list().then((res) => setTasks(res.tasks || [])).catch(() => {});
@@ -71,166 +111,119 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    analyticsApi.overview({ range }).then(setData).catch(() => setData(false));
+  }, [range]);
+
   if (data === null) return <DashboardSkeleton />;
   const stats = data?.stats || {};
 
-  // A friendly trailing date-range label for the header pill.
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-  const rangeLabel = `${format(start, "dd MMM")} – ${format(today, "dd MMM, yyyy")}`;
-
   return (
     <div className="space-y-6">
-      {/* Title row */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-ink sm:text-[2.5rem]">
-          Welcome Back, <span className="text-ink-soft">{user?.name?.split(" ")[0]}</span>
-        </h1>
-        <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft shadow-[var(--shadow-soft)] sm:flex">
-            <CalendarRange className="h-4 w-4" />
-            {rangeLabel}
+      <GreetingHeader user={user} />
+      <div className="tour-ai-attention"><AiAttentionCenter /></div>
+
+      {/* ── Main Dashboard Grid (Flattened for row alignment) ──────── */}
+      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-12">
+        
+        {/* Row 1 */}
+        <HeroCard className="lg:col-span-3 h-full" value={stats.pipelineValue} />
+        
+        <Card className="tour-pipeline-engagement p-6 lg:col-span-6 h-full flex flex-col">
+          <SectionHeading
+            icon={CreditCard}
+            title="Pipeline Engagement"
+            subtitle="New leads per month"
+            action={
+              <Tabs
+                value={range}
+                onChange={setRange}
+                tabs={[
+                  { value: "monthly", label: "Monthly" },
+                  { value: "annually", label: "Annually" },
+                ]}
+              />
+            }
+          />
+          <div className="mt-4 flex-1">
+            <EngagementChart trend={data?.trend || []} />
           </div>
-          <Link
-            to="/leads"
-            className="brand-gradient brand-gradient-hover inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-sm transition"
-          >
-            <Plus className="h-4 w-4" /> Add New Lead
-          </Link>
-        </div>
-      </div>
+        </Card>
 
-      {/* AI Attention Center - Priority Lead Risk Co-Pilot */}
-      <AiAttentionCenter />
+        <Card className="p-6 lg:col-span-3 h-full flex flex-col">
+          <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
+          <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
+          <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
+            {currency(stats.revenueWon)}
+          </p>
+          <BalanceChart trend={data?.trend || []} />
+        </Card>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-        {/* ── Left column ───────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-3">
-          <HeroCard value={stats.pipelineValue} />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4">
+        {/* Row 2 */}
+        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
+          <div className="grid grid-cols-2 gap-4 flex-none">
+            <Card className="p-4 flex-1">
               <p className="text-xs text-ink-soft">Revenue Won</p>
               <p className="mt-1 font-display text-lg font-bold text-emerald-600">
                 {currency(stats.revenueWon, { compact: true })}
               </p>
             </Card>
-
-            <Card className="p-4">
+            <Card className="p-4 flex-1">
               <p className="text-xs text-ink-soft">Forecasted</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {currency(stats.revenueForecast ?? 0, { compact: true })}
               </p>
             </Card>
-
-            <Card className="p-4">
+            <Card className="p-4 flex-1">
               <p className="text-xs text-ink-soft">Win Rate</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {stats.conversionRate ?? 0}%
               </p>
             </Card>
-
-            <Card className="p-4">
+            <Card className="p-4 flex-1">
               <p className="text-xs text-ink-soft">Deal Cycle</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {stats.avgDealCycle ?? 0} <span className="text-xs font-normal text-ink-soft">days</span>
               </p>
             </Card>
-
-            <Card className="p-4 border-rose-100 bg-rose-50/30">
-              <p className="text-xs font-medium text-rose-700">Overdue Tasks</p>
-              <p className="mt-1 font-display text-lg font-bold text-rose-600">
-                {tasks.filter((t) => t.status !== "Completed" && t.dueDate && isPast(new Date(t.dueDate))).length}
-              </p>
-            </Card>
-
-            <Card className="p-4 border-amber-100 bg-amber-50/30">
-              <p className="text-xs font-medium text-amber-700">Leads at Risk</p>
-              <p className="mt-1 font-display text-lg font-bold text-amber-600">
-                {leads.filter((l) => (l.aiRiskScore && l.aiRiskScore > 60) || l.status === "New").length}
-              </p>
-            </Card>
           </div>
-
-          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
-          <TopContactsCard contacts={contacts} />
         </div>
 
-        {/* ── Center column ─────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-6">
-          <Card className="p-6">
-            <SectionHeading
-              icon={CreditCard}
-              title="Pipeline Engagement"
-              subtitle="New leads per month"
-              action={
-                <Tabs
-                  value={range}
-                  onChange={setRange}
-                  tabs={[
-                    { value: "monthly", label: "Monthly" },
-                    { value: "annually", label: "Annually" },
-                  ]}
-                />
-              }
-            />
-            <div className="mt-4">
-              <EngagementChart trend={data?.trend || []} />
-            </div>
-          </Card>
-
-          <RecentActivityStream notes={notes} leads={leads} />
-
-          <Card className="p-6">
-            <SectionHeading
-              title="Lead Activity"
-              subtitle="Recent lead movements"
-              to="/leads"
-            />
-            <div className="mt-4">
+        <div className="lg:col-span-6 h-full flex flex-col">
+          <Card className="p-6 flex-1 flex flex-col">
+            <SectionHeading title="Lead Activity" subtitle="Recent lead movements" to="/leads" />
+            <div className="mt-4 flex-1">
               <ActivityTable leads={data?.recentLeads || []} />
             </div>
           </Card>
-
-          <PipelineByStage pipeline={data?.pipeline || []} />
         </div>
 
-        {/* ── Right column ──────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-3">
-          {/* Revenue / balance card */}
-          <Card className="p-6">
-            <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
-            <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
-            <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
-              {currency(stats.revenueWon)}
-            </p>
-            <BalanceChart trend={data?.trend || []} />
-            <div className="mt-4 flex items-center gap-2">
-              <Link
-                to="/leads"
-                className="brand-gradient brand-gradient-hover inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-white transition"
-              >
-                <Plus className="h-4 w-4" /> Add Lead
-              </Link>
-              <Link
-                to="/tasks"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-line text-sm font-medium text-ink transition hover:bg-surface-muted"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Task
-              </Link>
-            </div>
-          </Card>
-
-          <AiInsightsCard />
-          <WinLossBySource data={data?.winLossBySource} />
-          <TopDeals leads={leads} />
+        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
+          <AiInsightsCard className="flex-none" />
+          <TopDeals leads={leads} className="flex-1 h-full" />
         </div>
+
+        {/* Row 3 */}
+        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
+          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} className="flex-1 h-full" />
+        </div>
+        <PipelineByStage pipeline={data?.pipeline || []} className="lg:col-span-6 h-full" />
+        <WinLossBySource data={data?.winLossBySource} className="lg:col-span-3 h-full" />
+
+        {/* Row 4 */}
+        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
+          <TopContactsCard contacts={contacts} className="flex-1 h-full" />
+          <SalesIntelWidget className="flex-none" />
+        </div>
+        <RecentActivityStream notes={notes} leads={leads} className="lg:col-span-6 h-full" />
+        <QuotaWidget stats={stats} className="lg:col-span-3 h-full" />
       </div>
     </div>
   );
 }
 
-/* ── Pipeline by stage (funnel-style breakdown) ─────────────────────── */
+
+/* -- Pipeline by stage (funnel-style breakdown) ----------------------- */
 function PipelineByStage({ pipeline, className }) {
   const maxValue = Math.max(...pipeline.map((s) => s.value), 1);
   const totalValue = pipeline.reduce((sum, s) => sum + s.value, 0);
@@ -415,7 +408,7 @@ function TopDeals({ leads }) {
   );
 }
 
-/* ── Engagement bar chart with a highlighted peak + floating bubble ──── */
+/* ── Engagement & Revenue Chart (Advanced Composed Chart) ────────────── */
 function EngagementChart({ trend }) {
   const counts = trend.map((t) => t.leads);
   const max = Math.max(...counts, 1);
@@ -440,8 +433,8 @@ function EngagementChart({ trend }) {
   };
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={trend} barCategoryGap="28%" margin={{ top: 30 }}>
+    <ResponsiveContainer width="100%" height={320}>
+      <ComposedChart data={trend} barCategoryGap="20%" margin={{ top: 40, right: 10, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke="#e8eef3" strokeDasharray="4 4" />
         <XAxis
           dataKey="month"
@@ -451,20 +444,62 @@ function EngagementChart({ trend }) {
           dy={6}
         />
         <YAxis
+          yAxisId="left"
           axisLine={false}
           tickLine={false}
           tick={{ fill: "#64748b", fontSize: 12 }}
-          width={30}
+          width={35}
           tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
         />
-        <Tooltip cursor={{ fill: "#f1f5f9" }} content={<ChartTooltip unit=" leads" />} />
-        <Bar dataKey="leads" radius={[14, 14, 14, 14]} maxBarSize={42} label={renderPeak}>
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: "#10b981", fontSize: 12 }}
+          width={45}
+          tickFormatter={(v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`)}
+        />
+        <Tooltip cursor={{ fill: "#f1f5f9" }} content={<AdvancedChartTooltip />} />
+        
+        <Bar yAxisId="left" dataKey="leads" radius={[8, 8, 8, 8]} maxBarSize={42} label={renderPeak}>
           {trend.map((t, i) => (
             <Cell key={i} fill={i === maxIndex ? "#0369a1" : "#bae6fd"} />
           ))}
         </Bar>
-      </BarChart>
+        <Line 
+          yAxisId="right" 
+          type="monotone" 
+          dataKey="won" 
+          stroke="#10b981" 
+          strokeWidth={3} 
+          dot={{ r: 4, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }} 
+          activeDot={{ r: 6 }} 
+        />
+      </ComposedChart>
     </ResponsiveContainer>
+  );
+}
+
+function AdvancedChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-pop)] min-w-[140px]">
+      <p className="mb-2 text-sm font-bold text-ink">{label}</p>
+      {payload.map((entry, index) => (
+        <div key={index} className="flex items-center justify-between text-sm mt-1">
+          <span className="flex items-center gap-1.5 text-ink-soft">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            {entry.name === "leads" ? "New Leads" : "Revenue Won"}
+          </span>
+          <span className="font-semibold text-ink ml-4 tabular-nums">
+            {entry.name === "leads" 
+              ? Number(entry.value).toLocaleString() 
+              : `₹${Number(entry.value).toLocaleString()}`}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -478,7 +513,7 @@ function BalanceChart({ trend }) {
             <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <Tooltip content={<ChartTooltip prefix="$" />} />
+        <Tooltip content={<ChartTooltip prefix="₹" />} />
         <Area type="monotone" dataKey="won" stroke="#0284c7" strokeWidth={2.5} fill="url(#balance)" />
       </AreaChart>
     </ResponsiveContainer>
@@ -666,5 +701,84 @@ function DashboardSkeleton() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Industry News & Sales Intel ──────────────────────────────────────── */
+function SalesIntelWidget() {
+  const news = [
+    {
+      id: 1,
+      tag: "Product Update",
+      title: "RevFlux AI Copilot enters early preview for select Indian SMBs",
+      date: "2 hours ago",
+    },
+    {
+      id: 2,
+      tag: "Market Intel",
+      title: "Q4 B2B Sales Trends: Why WhatsApp outreach is beating email by 40%",
+      date: "1 day ago",
+    },
+    {
+      id: 3,
+      tag: "Best Practices",
+      title: "How to use the new DPDP compliance tools to secure enterprise deals",
+      date: "3 days ago",
+    }
+  ];
+
+  return (
+    <Card className="flex flex-col p-6">
+      <SectionHeading icon={Newspaper} title="Sales Intel & News" subtitle="Industry updates" />
+      <ul className="mt-5 space-y-4">
+        {news.map((item) => (
+          <li key={item.id} className="group cursor-pointer">
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-brand-600">
+              {item.tag}
+            </span>
+            <p className="text-sm font-semibold leading-snug text-ink transition group-hover:text-brand-600">
+              {item.title}
+            </p>
+            <span className="mt-1 block text-xs text-ink-soft">{item.date}</span>
+          </li>
+        ))}
+      </ul>
+      <button className="mt-4 w-full rounded-xl bg-surface-muted py-2 text-xs font-semibold text-ink-soft transition hover:bg-surface hover:text-ink">
+        Read More
+      </button>
+    </Card>
+  );
+}
+
+/* ── Quota Attainment Widget ─────────────────────────────────────────── */
+function QuotaWidget({ stats }) {
+  const goal = 2500000; // 25L INR goal for the quarter/month
+  const won = stats?.revenueWon || 0;
+  const progress = Math.min(100, Math.round((won / goal) * 100));
+  
+  return (
+    <Card className="p-6">
+      <SectionHeading icon={CreditCard} title="Quota Attainment" subtitle="Q4 Target" />
+      <div className="mt-5">
+        <div className="flex items-end justify-between mb-2">
+          <div>
+            <p className="font-display text-2xl font-bold text-ink tabular-nums">{currency(won, { compact: true })}</p>
+            <p className="text-xs text-ink-soft mt-0.5">Won this quarter</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-semibold text-brand-700">{progress}%</p>
+            <p className="text-xs text-ink-soft mt-0.5">of {currency(goal, { compact: true })}</p>
+          </div>
+        </div>
+        <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-line/60">
+          <div 
+            className="h-full bg-brand-500 rounded-full relative" 
+            style={{ width: `${progress}%` }}
+          >
+            <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
