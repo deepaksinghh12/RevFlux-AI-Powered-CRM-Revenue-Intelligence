@@ -168,3 +168,28 @@ ${JSON.stringify(pipelineData, null, 2)}
 };
 
 export { generateJSON, generateText };
+
+/**
+ * Copilot Chat Response
+ * Takes an array of messages and optionally a system prompt to maintain context.
+ */
+export const generateChatResponse = async (messages, systemContext) => {
+  const ai = getClient();
+  
+  const payloadMessages = [];
+  if (systemContext) {
+    payloadMessages.push({ role: "system", content: systemContext });
+  }
+  
+  // ensure the messages only contain role and content
+  messages.forEach(m => {
+    payloadMessages.push({ role: m.role, content: m.content });
+  });
+
+  const completion = await ai.chat.completions.create({
+    model: MODEL(),
+    messages: payloadMessages,
+  });
+
+  return completion.choices[0].message.content;
+};

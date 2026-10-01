@@ -270,3 +270,49 @@ export const getAttentionLeads = asyncHandler(async (req, res) => {
     leads: attentionLeads,
   });
 });
+
+// ===============================
+// COPILOT CHAT
+// ===============================
+export const copilotChat = asyncHandler(async (req, res) => {
+  const { messages } = req.body;
+  
+  if (!messages || !Array.isArray(messages)) {
+    throw new ApiError(400, "Messages array is required");
+  }
+
+  // Inject robust CRM context so the Copilot is context-aware
+  const stats = await buildPipelineStatus(req.user._id);
+  
+  // Format top active deals for context
+  const activeLeads = await Lead.find({ owner: req.user._id, status: { $nin: ["Won", "Lost"] } })
+    .sort({ value: -1 })
+    .limit(5);
+
+  const contextStr = activeLeads.map(l => `- ${l.name} at ${l.company} (${l.status}) | Value: ${l.value} | Risk: ${l.aiRiskScore || 0}/100`).join("\n");
+
+  const systemContext = `
+You are RevFlux AI Copilot, a highly intelligent sales assistant built directly into the CRM.
+Your goal is to help the operator close more deals, analyze data, and draft communications.
+Be concise, analytical, and professional but approachable. Use markdown formatting.
+
+CURRENT CRM CONTEXT:
+- Operator Name: ${req.user.name}
+- Total Open Pipeline: ₹${stats.pipelineValue}
+- Deals Won: ${stats.byStage.Won.count}
+- Deal Conversion Rate: ${stats.conversionRate}%
+
+Top Active Deals:
+${contextStr || "No active deals found."}
+
+When asked about deals, reference this context. You have read-only access to this summary, so if the user asks you to modify data, tell them you cannot directly edit records yet but can guide them.
+  `.trim();
+
+  const { generateChatResponse } = await import("../services/ai.service.js");
+  const responseText = await generateChatResponse(messages, systemContext);
+
+  res.json({
+    success: true,
+    message: responseText,
+  });
+});

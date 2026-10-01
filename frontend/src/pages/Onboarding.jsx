@@ -233,7 +233,10 @@ export default function Onboarding() {
             </div>
 
             <div className="pt-2 space-y-3">
-              <Button size="lg" className="w-full" onClick={() => navigate(dataChoice === "csv" ? "/leads" : "/")}>
+              <Button size="lg" className="w-full" onClick={() => {
+                localStorage.setItem("revflux_run_tour", "true");
+                navigate(dataChoice === "csv" ? "/leads" : "/");
+              }}>
                 Go to Dashboard Workspace
               </Button>
             </div>

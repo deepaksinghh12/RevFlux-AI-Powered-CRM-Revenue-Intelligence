@@ -121,102 +121,125 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <GreetingHeader user={user} />
+      <MetricsRibbon stats={stats} tasks={tasks} leads={leads} />
       <div className="tour-ai-attention"><AiAttentionCenter /></div>
 
-      {/* ── Main Dashboard Grid (Flattened for row alignment) ──────── */}
-      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-12">
-        
-        {/* Row 1 */}
-        <HeroCard className="lg:col-span-3 h-full" value={stats.pipelineValue} />
-        
-        <Card className="tour-pipeline-engagement p-6 lg:col-span-6 h-full flex flex-col">
-          <SectionHeading
-            icon={CreditCard}
-            title="Pipeline Engagement"
-            subtitle="New leads per month"
-            action={
-              <Tabs
-                value={range}
-                onChange={setRange}
-                tabs={[
-                  { value: "monthly", label: "Monthly" },
-                  { value: "annually", label: "Annually" },
-                ]}
-              />
-            }
-          />
-          <div className="mt-4 flex-1">
-            <EngagementChart trend={data?.trend || []} />
-          </div>
-        </Card>
+      {/* ── Main Dashboard Grid (Original 3-Column Layout) ───────────── */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+        {/* ── Left Column ───────────────────────────────── */}
+        <div className="space-y-5 lg:col-span-3">
+          <HeroCard value={stats.pipelineValue} />
 
-        <Card className="p-6 lg:col-span-3 h-full flex flex-col">
-          <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
-          <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
-          <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
-            {currency(stats.revenueWon)}
-          </p>
-          <BalanceChart trend={data?.trend || []} />
-        </Card>
-
-        {/* Row 2 */}
-        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
-          <div className="grid grid-cols-2 gap-4 flex-none">
-            <Card className="p-4 flex-1">
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="p-4">
               <p className="text-xs text-ink-soft">Revenue Won</p>
               <p className="mt-1 font-display text-lg font-bold text-emerald-600">
                 {currency(stats.revenueWon, { compact: true })}
               </p>
             </Card>
-            <Card className="p-4 flex-1">
+
+            <Card className="p-4">
               <p className="text-xs text-ink-soft">Forecasted</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {currency(stats.revenueForecast ?? 0, { compact: true })}
               </p>
             </Card>
-            <Card className="p-4 flex-1">
+
+            <Card className="p-4">
               <p className="text-xs text-ink-soft">Win Rate</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {stats.conversionRate ?? 0}%
               </p>
             </Card>
-            <Card className="p-4 flex-1">
+
+            <Card className="p-4">
               <p className="text-xs text-ink-soft">Deal Cycle</p>
               <p className="mt-1 font-display text-lg font-bold text-ink">
                 {stats.avgDealCycle ?? 0} <span className="text-xs font-normal text-ink-soft">days</span>
               </p>
             </Card>
           </div>
+
+          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
+          <TopContactsCard contacts={contacts} />
+          <SalesIntelWidget />
         </div>
 
-        <div className="lg:col-span-6 h-full flex flex-col">
-          <Card className="p-6 flex-1 flex flex-col">
-            <SectionHeading title="Lead Activity" subtitle="Recent lead movements" to="/leads" />
-            <div className="mt-4 flex-1">
+        {/* ── Center Column ─────────────────────────────── */}
+        <div className="space-y-5 lg:col-span-6">
+          <Card className="tour-pipeline-engagement p-6">
+            <SectionHeading
+              icon={CreditCard}
+              title="Pipeline Engagement"
+              subtitle="New leads per month"
+              action={
+                <Tabs
+                  value={range}
+                  onChange={setRange}
+                  tabs={[
+                    { value: "monthly", label: "Monthly" },
+                    { value: "annually", label: "Annually" },
+                  ]}
+                />
+              }
+            />
+            <div className="mt-4">
+              <EngagementChart trend={data?.trend || []} />
+            </div>
+          </Card>
+
+          <RecentActivityStream notes={notes} leads={leads} />
+
+          <Card className="p-6">
+            <SectionHeading
+              title="Lead Activity"
+              subtitle="Recent lead movements"
+              to="/leads"
+            />
+            <div className="mt-4">
               <ActivityTable leads={data?.recentLeads || []} />
             </div>
           </Card>
+
+          <PipelineByStage pipeline={data?.pipeline || []} />
         </div>
 
-        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
-          <AiInsightsCard className="flex-none" />
-          <TopDeals leads={leads} className="flex-1 h-full" />
-        </div>
+        {/* ── Right Column ──────────────────────────────── */}
+        <div className="space-y-5 lg:col-span-3">
+          <Card className="p-6">
+            <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
+            <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
+            <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
+              {currency(stats.revenueWon)}
+            </p>
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                <ArrowUpRight className="h-3 w-3" /> +14.2% MoM
+              </span>
+              <span className="text-[11px] text-ink-soft">vs last month</span>
+            </div>
+            <BalanceChart trend={data?.trend || []} />
+            <div className="mt-4 flex items-center gap-2">
+              <Link
+                to="/leads"
+                className="tour-add-lead brand-gradient brand-gradient-hover inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-white transition"
+              >
+                <Plus className="h-4 w-4" /> Add Lead
+              </Link>
+              <Link
+                to="/tasks"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-line text-sm font-medium text-ink transition hover:bg-surface-muted"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Task
+              </Link>
+            </div>
+          </Card>
 
-        {/* Row 3 */}
-        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
-          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} className="flex-1 h-full" />
+          <AiInsightsCard />
+          <WinLossBySource data={data?.winLossBySource} />
+          <TopDeals leads={leads} />
+          <QuotaWidget stats={stats} />
         </div>
-        <PipelineByStage pipeline={data?.pipeline || []} className="lg:col-span-6 h-full" />
-        <WinLossBySource data={data?.winLossBySource} className="lg:col-span-3 h-full" />
-
-        {/* Row 4 */}
-        <div className="lg:col-span-3 flex flex-col gap-5 h-full">
-          <TopContactsCard contacts={contacts} className="flex-1 h-full" />
-          <SalesIntelWidget className="flex-none" />
-        </div>
-        <RecentActivityStream notes={notes} leads={leads} className="lg:col-span-6 h-full" />
-        <QuotaWidget stats={stats} className="lg:col-span-3 h-full" />
       </div>
     </div>
   );
@@ -780,5 +803,55 @@ function QuotaWidget({ stats }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/* ── Top-Row Metrics Ribbon ─────────────────────────────────────────── */
+function MetricsRibbon({ stats, tasks, leads }) {
+  const overdueCount = tasks.filter((t) => t.status !== "Completed" && t.dueDate && isPast(new Date(t.dueDate))).length;
+  const hotLeads = leads.filter((l) => l.priority === "High" || (l.aiRiskScore && l.aiRiskScore > 60)).length;
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <Card className="p-3.5 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wider">Win Rate</p>
+          <p className="mt-0.5 font-display text-lg font-bold text-ink">{stats.conversionRate ?? 0}%</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <Trophy className="h-4 w-4" />
+        </div>
+      </Card>
+      
+      <Card className="p-3.5 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wider">Avg Deal Cycle</p>
+          <p className="mt-0.5 font-display text-lg font-bold text-ink">{stats.avgDealCycle ?? 0}d</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <CalendarClock className="h-4 w-4" />
+        </div>
+      </Card>
+
+      <Card className="p-3.5 flex items-center justify-between border-rose-100 bg-rose-50/20">
+        <div>
+          <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Overdue Tasks</p>
+          <p className="mt-0.5 font-display text-lg font-bold text-rose-600">{overdueCount}</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
+          <AlertTriangle className="h-4 w-4" />
+        </div>
+      </Card>
+
+      <Card className="p-3.5 flex items-center justify-between border-amber-100 bg-amber-50/20">
+        <div>
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Hot Deals / Risk</p>
+          <p className="mt-0.5 font-display text-lg font-bold text-amber-600">{hotLeads}</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+          <Target className="h-4 w-4" />
+        </div>
+      </Card>
+    </div>
   );
 }

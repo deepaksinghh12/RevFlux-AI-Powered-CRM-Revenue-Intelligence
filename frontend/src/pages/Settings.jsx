@@ -346,6 +346,19 @@ function WorkspaceCard() {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
           <div>
+            <p className="text-xs font-bold text-ink">Interactive Product Tour</p>
+            <p className="text-[11px] text-ink-soft">Re-run the dashboard product tour guide.</p>
+          </div>
+          <Button variant="outline" size="xs" onClick={() => {
+            localStorage.setItem("revflux_run_tour", "true");
+            window.location.href = "/";
+          }}>
+            Run Tour
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
+          <div>
             <p className="text-xs font-bold text-ink">Seed Sample Pipeline</p>
             <p className="text-[11px] text-ink-soft">Populate workspace with 8 deals, tasks, and notes in 1 click.</p>
           </div>

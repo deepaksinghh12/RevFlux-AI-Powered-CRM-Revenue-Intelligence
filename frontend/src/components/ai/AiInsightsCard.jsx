@@ -33,7 +33,7 @@ export function AiInsightsCard() {
           </div>
           <div>
             <h3 className="text-base font-semibold text-ink">AI Sales Insights</h3>
-            <p className="text-xs text-ink-soft">Powered by Gemini</p>
+            <p className="text-xs text-ink-soft">RevFlux AI Intelligence</p>
           </div>
         </div>
         {data && (

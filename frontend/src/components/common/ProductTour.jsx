@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
-import Joyride, { STATUS } from "react-joyride";
+import { Joyride, STATUS } from "react-joyride";
+
+const JoyrideComponent = Joyride || Joyride?.default;
 
 export function ProductTour() {
   const [run, setRun] = useState(false);
 
   useEffect(() => {
-    const hasSeenTour = localStorage.getItem("revflux_has_seen_tour");
-    if (!hasSeenTour) {
-      // Small delay to let initial animations finish
-      setTimeout(() => setRun(true), 2000);
+    // Only run if specifically requested by a fresh signup or settings button
+    const shouldRunTour = localStorage.getItem("revflux_run_tour");
+    if (shouldRunTour === "true") {
+      setTimeout(() => setRun(true), 1500);
     }
   }, []);
 
   const handleJoyrideCallback = (data) => {
     const { status } = data;
-    const finishedStatuses = [STATUS.FINISHED, STATUS.SKIPPED];
+    const finishedStatuses = [STATUS?.FINISHED || "finished", STATUS?.SKIPPED || "skipped"];
     
     if (finishedStatuses.includes(status)) {
       setRun(false);
+      localStorage.removeItem("revflux_run_tour");
       localStorage.setItem("revflux_has_seen_tour", "true");
     }
   };
@@ -32,22 +35,27 @@ export function ProductTour() {
     {
       target: ".tour-pipeline-engagement",
       content: "Track your pipeline health over time. See how many leads are entering and converting each month.",
+      disableBeacon: true,
       placement: "right",
     },
     {
       target: ".tour-add-lead",
       content: "Click here to add a new lead to your CRM manually, or import from CSV.",
+      disableBeacon: true,
       placement: "left",
     },
     {
       target: ".tour-sidebar",
       content: "Navigate through your Contacts, Pipeline, Tasks, and AI settings right from here.",
+      disableBeacon: true,
       placement: "right",
     }
   ];
 
+  if (typeof JoyrideComponent !== "function") return null;
+
   return (
-    <Joyride
+    <JoyrideComponent
       callback={handleJoyrideCallback}
       continuous
       hideCloseButton

@@ -7,6 +7,7 @@ import {
   salesInsights,
   buildPipelineStatus,
   getAttentionLeads,
+  copilotChat,
 } from "../controllers/ai.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { aiRateLimiter } from "../middleware/rateLimit.middleware.js";
@@ -14,6 +15,8 @@ import { aiRateLimiter } from "../middleware/rateLimit.middleware.js";
 const router = Router();
 
 router.use(protect);
+
+router.post("/chat", aiRateLimiter, copilotChat);
 
 router.get("/status", getAiStatus);
 router.get("/attention", getAttentionLeads);
