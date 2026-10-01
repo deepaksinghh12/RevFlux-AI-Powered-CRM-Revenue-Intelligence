@@ -81,3 +81,11 @@ export const outreachApi = {
   sendQueueItem: (id) => api.post(`/outreach/queue/${id}/send`),
   dismissQueueItem: (id) => api.delete(`/outreach/queue/${id}`),
 };
+
+/* ── Team & RBAC Roles ──────────────────────────────────────────────── */
+export const teamApi = {
+  getMembers: () => api.get("/team"),
+  inviteMember: (data) => api.post("/team/invite", data),
+  updateRole: (userId, data) => api.put(`/team/${userId}/role`, data),
+  removeMember: (userId) => api.delete(`/team/${userId}`),
+};

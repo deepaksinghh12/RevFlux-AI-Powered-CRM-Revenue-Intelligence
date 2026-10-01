@@ -19,6 +19,7 @@ import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Outreach from "./pages/Outreach";
+import Team from "./pages/Team";
 import { useAuth } from "./context/AuthContext";
 
 export default function App() {
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="notes" element={<Notes />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="outreach" element={<Outreach />} />
+        <Route path="team" element={<Team />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

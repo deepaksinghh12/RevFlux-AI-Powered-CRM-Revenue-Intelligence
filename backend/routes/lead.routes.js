@@ -18,6 +18,8 @@ import { checkLeadLimit } from "../middleware/plan.middleware.js";
 import { validateBody } from "../middleware/validate.middleware.js";
 import { leadSchemas } from "../validators/schemas.js";
 
+import { requireRole } from "../middleware/rbac.middleware.js";
+
 const router = Router();
 
 // All lead routes require authentication
@@ -28,7 +30,7 @@ router.route("/")
   .post(checkLeadLimit, validateBody(leadSchemas.create), createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
-router.post("/bulk", checkLeadLimit, importLeads);
+router.post("/bulk", requireRole("owner", "ops_head", "superadmin"), checkLeadLimit, importLeads);
 router.patch("/reorder", reorderLeads);
 router.put("/reorder", reorderLeads);
 
@@ -46,6 +48,6 @@ router.route("/:id")
   .get(getLead)
   .put(updateLead)
   .patch(updateLead)
-  .delete(deleteLead);
+  .delete(requireRole("owner", "ops_head", "superadmin"), deleteLead);
 
 export default router;

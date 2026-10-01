@@ -7,6 +7,7 @@ import {
   StickyNote,
   CalendarCheck,
   Mail,
+  ShieldCheck,
   Settings,
   LogOut,
   Sparkles,
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/notes", label: "Notes", icon: StickyNote },
   { to: "/tasks", label: "Follow-ups", icon: CalendarCheck },
   { to: "/outreach", label: "AI Outreach", icon: Mail },
+  { to: "/team", label: "Team & Roles", icon: ShieldCheck },
 ];
 
 export function Sidebar({ onNavigate }) {
