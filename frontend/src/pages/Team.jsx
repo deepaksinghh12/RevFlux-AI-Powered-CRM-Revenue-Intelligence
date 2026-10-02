@@ -34,29 +34,23 @@ import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
 
 const ROLES_META = {
-  superadmin: {
-    title: "RevFlux Super Admin",
-    color: "bg-indigo-900 text-white border-indigo-700",
-    desc: "Platform vendor administrator",
-    permissions: ["Cross-Tenant Control", "Global API Keys", "System Auditing"],
-  },
   owner: {
-    title: "Business Owner",
+    title: "Workspace Owner",
     color: "bg-purple-50 text-purple-700 border-purple-200",
-    desc: "Purchased subscription & owns billing",
-    permissions: ["Manage Billing & Razorpay", "Assign Team Roles", "Lead Deletion", "Full AI Tools"],
+    desc: "Full workspace control, billing & team management",
+    permissions: ["Manage Billing", "Assign Team Roles", "Delete Leads", "Full AI Tools"],
   },
-  ops_head: {
-    title: "Operations Head",
+  admin: {
+    title: "Administrator",
     color: "bg-blue-50 text-blue-700 border-blue-200",
-    desc: "Manages data pipelines & workflow rules",
-    permissions: ["CSV Data Ingestion", "CRM Cadences", "Audit Logs", "Manage Reps"],
+    desc: "Manages team, data imports & workspace settings",
+    permissions: ["CSV Data Import", "Team Management", "CRM Cadences", "AI Features"],
   },
   manager: {
     title: "Sales Manager",
     color: "bg-emerald-50 text-emerald-700 border-emerald-200",
     desc: "Oversees reps, pipeline & deal quotas",
-    permissions: ["Pipeline Control", "Task Assignment", "AI Risk Analytics", "Team Reports"],
+    permissions: ["Pipeline Control", "Task Assignment", "AI Analytics", "Team Reports"],
   },
   rep: {
     title: "Sales Representative",
@@ -64,10 +58,16 @@ const ROLES_META = {
     desc: "Front-line deal & task execution",
     permissions: ["Assigned Lead Management", "Log Notes & Tasks", "AI Email Outreach"],
   },
+  viewer: {
+    title: "Viewer",
+    color: "bg-gray-50 text-gray-600 border-gray-200",
+    desc: "Read-only access to CRM data",
+    permissions: ["View Leads & Pipeline", "View Reports"],
+  },
 };
 
 export default function Team() {
-  const { user } = useAuth();
+  const { user, activeOrg } = useAuth();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,9 +88,9 @@ export default function Team() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const currentUserRole = user?.role || "owner";
-  const canInvite = ["owner", "ops_head", "superadmin"].includes(currentUserRole);
-  const canManageRoles = ["owner", "superadmin"].includes(currentUserRole);
+  const currentUserRole = activeOrg?.role || "rep";
+  const canInvite = ["owner", "admin"].includes(currentUserRole);
+  const canManageRoles = ["owner", "admin"].includes(currentUserRole);
 
   useEffect(() => {
     loadTeam();
@@ -202,6 +202,7 @@ export default function Team() {
                         <div className="flex items-center gap-1.5">
                           <h4 className="font-bold text-ink text-sm">{m.name}</h4>
                           {isSelf && <Badge className="bg-emerald-100 text-emerald-800 text-[9px]">You</Badge>}
+                          {m.status === "invited" && <Badge className="bg-yellow-100 text-yellow-800 text-[9px]">Invited</Badge>}
                         </div>
                         <p className="text-xs text-ink-soft">{m.email}</p>
                       </div>
@@ -318,10 +319,10 @@ export default function Team() {
               value={inviteForm.role}
               onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
             >
-              <option value="rep">Sales Representative (Employee)</option>
-              <option value="manager">Sales Manager (Team Lead)</option>
-              <option value="ops_head">Operations Head (RevOps Director)</option>
-              <option value="owner">Business Owner (Co-Founder)</option>
+              <option value="viewer">Viewer (Read-Only)</option>
+              <option value="rep">Sales Representative</option>
+              <option value="manager">Sales Manager</option>
+              <option value="admin">Administrator</option>
             </Select>
           </Field>
 
@@ -346,10 +347,11 @@ export default function Team() {
         <div className="space-y-4 pt-2">
           <Field label="Select New RBAC Role">
             <Select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-              <option value="rep">Sales Representative (Employee)</option>
-              <option value="manager">Sales Manager (Team Lead)</option>
-              <option value="ops_head">Operations Head (RevOps Director)</option>
-              <option value="owner">Business Owner (Client CEO)</option>
+              <option value="viewer">Viewer (Read-Only)</option>
+              <option value="rep">Sales Representative</option>
+              <option value="manager">Sales Manager</option>
+              <option value="admin">Administrator</option>
+              <option value="owner">Workspace Owner</option>
             </Select>
           </Field>
 

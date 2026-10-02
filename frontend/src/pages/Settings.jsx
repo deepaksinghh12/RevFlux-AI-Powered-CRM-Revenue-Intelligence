@@ -59,7 +59,7 @@ function SectionIcon({ icon: Icon, className }) {
 }
 
 /* ── 1. Rich Profile Card ─────────────────────────────────────── */
-function ProfileCard({ user, updateUser }) {
+function ProfileCard({ user, updateUser, activeOrg }) {
   const {
     register,
     handleSubmit,
@@ -71,7 +71,6 @@ function ProfileCard({ user, updateUser }) {
     if (!user) return;
     reset({
       name: user.name || "",
-      company: user.company || "",
       avatar: user.avatar || "",
       phone: user.phone || "",
       jobTitle: user.jobTitle || "Sales Leader",
@@ -111,7 +110,7 @@ function ProfileCard({ user, updateUser }) {
               <div className="flex items-center gap-2">
                 <p className="text-base font-bold text-ink">{user?.name}</p>
                 <Badge className="bg-brand-50 text-brand-700 font-bold uppercase text-[10px]">
-                  {user?.role || "Owner"}
+                  {activeOrg?.role || "Member"}
                 </Badge>
               </div>
               <p className="text-xs text-ink-soft">{user?.email}</p>
@@ -194,7 +193,7 @@ function ProfileCard({ user, updateUser }) {
 }
 
 /* ── 2. Billing & Subscription Card ────────────────────────────── */
-function BillingCard({ user }) {
+function BillingCard({ user, activeOrg }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [leadCount, setLeadCount] = useState(0);
 
@@ -211,8 +210,8 @@ function BillingCard({ user }) {
       .catch(() => {});
   }, []);
 
-  const plan = user?.plan || "free";
-  const limit = user?.leadLimit || (plan === "free" ? 50 : plan === "growth" ? 500 : 10000);
+  const plan = activeOrg?.plan || "free";
+  const limit = activeOrg?.leadLimit || (plan === "free" ? 50 : plan === "growth" ? 500 : 10000);
   const usagePct = Math.min(100, Math.round((leadCount / limit) * 100));
 
   return (
@@ -235,7 +234,7 @@ function BillingCard({ user }) {
                   {plan} Tier Workspace
                 </h4>
                 <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase text-[10px]">
-                  {user?.subscriptionStatus || "Active"}
+                  {activeOrg?.subscriptionStatus || "Active"}
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-ink-soft">
@@ -461,8 +460,8 @@ function SecurityCard() {
 }
 
 /* ── 5. RBAC & Multi-Role Permissions Management Panel ────────── */
-function RbacPermissionsCard({ user, updateUser }) {
-  const currentRole = user?.role || "owner";
+function RbacPermissionsCard({ user, updateUser, activeOrg }) {
+  const currentRole = activeOrg?.role || "rep";
   const [updating, setUpdating] = useState(false);
 
   const rolesConfig = [
@@ -697,14 +696,14 @@ function AuditStreamCard({ user, logout }) {
 
 /* ── Page Root Component ────────────────────────────────────────── */
 export default function Settings() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, activeOrg, updateUser, logout } = useAuth();
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Page Header */}
       <PageHeader
         title="Workspace Administration & Settings"
-        subtitle="Configure profile identity, RBAC multi-role access controls, Razorpay subscription billing, and security settings."
+        subtitle="Configure profile identity, RBAC multi-role access controls, subscription billing, and security settings."
       />
 
       {/* Quick Summary Pill Bar */}
@@ -713,13 +712,13 @@ export default function Settings() {
           <SettingsIcon className="h-4 w-4 text-brand-600" /> Workspace Status:
         </div>
         <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase font-bold text-[10px]">
-          Role: {user?.role || "Owner"}
+          Role: {activeOrg?.role || "Member"}
         </Badge>
         <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase font-bold text-[10px]">
-          Plan: {user?.plan || "Free"}
+          Plan: {activeOrg?.plan || "Free"}
         </Badge>
         <Badge className="bg-purple-50 text-purple-700 border border-purple-200/60 font-semibold text-[10px]">
-          SSL Encrypted
+          {activeOrg?.name || "Workspace"}
         </Badge>
       </div>
 
@@ -727,15 +726,15 @@ export default function Settings() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left / Main Column (7 Cols) */}
         <div className="lg:col-span-7 space-y-6">
-          <ProfileCard user={user} updateUser={updateUser} />
-          <BillingCard user={user} />
+          <ProfileCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
+          <BillingCard user={user} activeOrg={activeOrg} />
           <WorkspaceCard />
           <SecurityCard />
         </div>
 
         {/* Right / Sidebar Column (5 Cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <RbacPermissionsCard user={user} updateUser={updateUser} />
+          <RbacPermissionsCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
           <AiStatusWidget />
           <AuditStreamCard user={user} logout={logout} />
         </div>

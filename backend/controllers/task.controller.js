@@ -6,11 +6,15 @@ import { ApiError } from "../utils/ApiError.js";
 
 export const getTasks = asyncHandler(async (req, res) => {
   const filter = { organization: req.organization._id };
+  if (req.membership && req.membership.role === 'rep') {
+    filter.owner = req.user._id;
+  }
 
   const tasks = await Task.find(filter)
     .sort({ status: 1, dueDate: 1, createdAt: -1 })
     .populate("relatedLead", "name company")
-    .populate("relatedContact", "name company");
+    .populate("relatedContact", "name company")
+    .populate("owner", "name avatar");
 
   res.json({
     success: true,
@@ -22,7 +26,7 @@ export const getTasks = asyncHandler(async (req, res) => {
 export const createTask = asyncHandler(async (req, res) => {
   const task = await Task.create({
     ...req.body,
-    owner: req.user._id, organization: req.organization._id
+    organization: req.organization._id
   });
 
   res.status(201).json({
@@ -45,7 +49,7 @@ export const updateTask = asyncHandler(async (req, res) => {
   const task = await Task.findOneAndUpdate(
     {
       _id: req.params.id,
-      owner: req.user._id, organization: req.organization._id
+      organization: req.organization._id
     },
     updates,
     {
@@ -67,7 +71,7 @@ export const updateTask = asyncHandler(async (req, res) => {
 export const deleteTask = asyncHandler(async (req, res) => {
   const task = await Task.findOneAndDelete({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id
+    organization: req.organization._id
   });
 
   if (!task) {

@@ -5,7 +5,7 @@ import { Menu, Search, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ProductTour } from "../common/ProductTour";
 import { TeamChatWidget } from "../common/TeamChatWidget";
-import { CommandPaletteModal } from "../common/CommandPaletteModal";
+import { CommandPalette } from "../ui/CommandPalette";
 import { CopilotDrawer } from "../common/CopilotDrawer";
 
 export function AppLayout() {
@@ -34,7 +34,7 @@ export function AppLayout() {
       <ProductTour />
       <CopilotDrawer />
       <TeamChatWidget />
-      <CommandPaletteModal open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
+      <CommandPalette open={cmdPaletteOpen} setOpen={setCmdPaletteOpen} />
 
       {/* Desktop sidebar */}
       <div className="tour-sidebar hidden shrink-0 lg:flex">
@@ -98,9 +98,9 @@ export function AppLayout() {
               className="flex items-center gap-2 rounded-xl border border-line bg-canvas px-3 py-1.5 text-xs font-medium text-ink-soft shadow-xs transition hover:border-brand-300 hover:text-ink"
             >
               <Search className="h-3.5 w-3.5 text-brand-600" />
-              <span className="hidden sm:inline">Search or Cmd+K</span>
-              <kbd className="hidden sm:inline-block rounded-md bg-surface border border-line px-1.5 py-0.5 text-[10px] font-bold">
-                Ctrl+K
+              <span className="hidden sm:inline">Search...</span>
+              <kbd className="hidden sm:inline-flex items-center gap-1 rounded-md bg-surface border border-line px-1.5 py-0.5 text-[10px] font-bold">
+                <span className="text-xs">⌘</span>K
               </kbd>
             </button>
           </div>

@@ -22,6 +22,7 @@ const toClientUser = (user, memberships = []) => ({
   jobTitle: user.jobTitle || "Sales Leader",
   department: user.department || "Revenue Operations",
   signature: user.signature || "",
+  isSuperAdmin: user.isSuperAdmin || false,
   createdAt: user.createdAt,
   workspaces: memberships.map(m => ({
     id: m.organization._id,
@@ -34,8 +35,14 @@ const toClientUser = (user, memberships = []) => ({
   }))
 });
 
-// Helper to fetch memberships
+// Helper to fetch and auto-accept memberships
 const getUserMemberships = async (userId) => {
+  // Auto-accept any pending invitations upon successful authentication
+  await OrganizationMembership.updateMany(
+    { user: userId, status: "invited" },
+    { $set: { status: "active" } }
+  );
+
   return await OrganizationMembership.find({ user: userId, status: "active" }).populate("organization");
 };
 
@@ -45,23 +52,32 @@ export const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Name, email and password are required");
   }
 
-  const exists = await User.findOne({ email: email.toLowerCase() });
-  if (exists) {
-    throw new ApiError(409, "An account with that email already exists");
-  }
-
-  const user = await User.create({ name, email, password });
+  let user = await User.findOne({ email: email.toLowerCase() });
   
-  const org = await Organization.create({
-    name: company || `${name}'s Workspace`,
-  });
+  if (user) {
+    // Check if they are an invited user trying to claim their account
+    const isInvited = await OrganizationMembership.findOne({ user: user._id, status: "invited" });
+    if (isInvited) {
+      user.name = name;
+      user.password = password;
+      await user.save();
+    } else {
+      throw new ApiError(409, "An account with that email already exists");
+    }
+  } else {
+    user = await User.create({ name, email, password });
+    
+    const org = await Organization.create({
+      name: company || `${name}'s Workspace`,
+    });
 
-  await OrganizationMembership.create({
-    user: user._id,
-    organization: org._id,
-    role: "owner",
-    status: "active",
-  });
+    await OrganizationMembership.create({
+      user: user._id,
+      organization: org._id,
+      role: "owner",
+      status: "active",
+    });
+  }
 
   const memberships = await getUserMemberships(user._id);
 

@@ -22,7 +22,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
 
   // Step 1 Form Data
-  const [company, setCompany] = useState(user?.company || "");
+  const [company, setCompany] = useState(activeOrg?.name || "");
   const [industry, setIndustry] = useState("Technology / SaaS");
   const [teamSize, setTeamSize] = useState("1-5 people");
 

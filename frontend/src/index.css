@@ -119,3 +119,14 @@ h1, h2, h3, h4 {
     animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
+
+[cmdk-group-heading] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: #64748b;
+}
+

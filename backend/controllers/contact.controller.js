@@ -40,7 +40,7 @@ export const getContacts = asyncHandler(async (req, res) => {
 export const getContact = asyncHandler(async (req, res) => {
   const contact = await Contact.findOne({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id
+    organization: req.organization._id
   });
 
   if (!contact) {
@@ -64,7 +64,7 @@ export const createContact = asyncHandler(async (req, res) => {
   }
 
   const contact = await Contact.create({
-    owner: req.user._id, organization: req.organization._id,
+    organization: req.organization._id,
     name: name.trim(),
     email: email ? email.trim().toLowerCase() : "",
     phone: phone ? phone.trim() : "",
@@ -87,7 +87,7 @@ export const createContact = asyncHandler(async (req, res) => {
 export const updateContact = asyncHandler(async (req, res) => {
   const contact = await Contact.findOne({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id,
+    organization: req.organization._id,
   });
 
   if (!contact) {
@@ -133,7 +133,7 @@ export const updateContact = asyncHandler(async (req, res) => {
 export const deleteContact = asyncHandler(async (req, res) => {
   const contact = await Contact.findOne({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id,
+    organization: req.organization._id,
   });
 
   if (!contact) {

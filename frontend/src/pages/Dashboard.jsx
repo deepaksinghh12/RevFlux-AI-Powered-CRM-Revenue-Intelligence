@@ -53,7 +53,7 @@ import { cn } from "../lib/utils";
 /* Donut palette — sky-blue family used for the "Leads by Source" chart. */
 const SOURCE_COLORS = ["#0ea5e9", "#38bdf8", "#0369a1", "#7dd3fc", "#0284c7", "#bae6fd"];
 
-function GreetingHeader({ user }) {
+function GreetingHeader({ user, activeOrg }) {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -72,6 +72,16 @@ function GreetingHeader({ user }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div>
+        <div className="flex items-center gap-2 mb-1.5">
+          <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase font-bold text-[10px]">
+            {activeOrg?.name || "Workspace"}
+          </Badge>
+          {user?.isSuperAdmin && (
+            <Badge className="bg-indigo-900 text-white border-indigo-700 uppercase font-bold text-[10px]">
+              RevFlux Superadmin
+            </Badge>
+          )}
+        </div>
         <h1 className="font-display text-2xl font-bold tracking-tight text-ink flex items-center gap-2">
           {greeting}, <span className="capitalize">{user?.name?.split(" ")[0]}</span>!
         </h1>
@@ -92,7 +102,7 @@ function GreetingHeader({ user }) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, activeOrg } = useAuth();
   const [data, setData] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -120,58 +130,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <GreetingHeader user={user} />
+      <GreetingHeader user={user} activeOrg={activeOrg} />
       <MetricsRibbon stats={stats} tasks={tasks} leads={leads} />
       <div className="tour-ai-attention"><AiAttentionCenter /></div>
 
-      {/* ── Main Dashboard Grid (Original 3-Column Layout) ───────────── */}
+            {/* ── Action Center Grid (2-Column Layout) ───────────── */}
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-        {/* ── Left Column ───────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-3">
-          <HeroCard value={stats.pipelineValue} />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4">
-              <p className="text-xs text-ink-soft">Revenue Won</p>
-              <p className="mt-1 font-display text-lg font-bold text-emerald-600">
-                {currency(stats.revenueWon, { compact: true })}
-              </p>
-            </Card>
-
-            <Card className="p-4">
-              <p className="text-xs text-ink-soft">Forecasted</p>
-              <p className="mt-1 font-display text-lg font-bold text-ink">
-                {currency(stats.revenueForecast ?? 0, { compact: true })}
-              </p>
-            </Card>
-
-            <Card className="p-4">
-              <p className="text-xs text-ink-soft">Win Rate</p>
-              <p className="mt-1 font-display text-lg font-bold text-ink">
-                {stats.conversionRate ?? 0}%
-              </p>
-            </Card>
-
-            <Card className="p-4">
-              <p className="text-xs text-ink-soft">Deal Cycle</p>
-              <p className="mt-1 font-display text-lg font-bold text-ink">
-                {stats.avgDealCycle ?? 0} <span className="text-xs font-normal text-ink-soft">days</span>
-              </p>
-            </Card>
+        {/* ── Left Column: Operations & Workflow (8 Cols) ── */}
+        <div className="space-y-5 lg:col-span-8">
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
+            <RecentActivityStream notes={notes} leads={leads} />
           </div>
 
-          <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
-          <TopContactsCard contacts={contacts} />
-          <SalesIntelWidget />
-        </div>
-
-        {/* ── Center Column ─────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-6">
           <Card className="tour-pipeline-engagement p-6">
             <SectionHeading
               icon={CreditCard}
-              title="Pipeline Engagement"
-              subtitle="New leads per month"
+              title="Pipeline Velocity & Engagement"
+              subtitle="New leads vs Won revenue"
               action={
                 <Tabs
                   value={range}
@@ -188,8 +165,6 @@ export default function Dashboard() {
             </div>
           </Card>
 
-          <RecentActivityStream notes={notes} leads={leads} />
-
           <Card className="p-6">
             <SectionHeading
               title="Lead Activity"
@@ -204,41 +179,65 @@ export default function Dashboard() {
           <PipelineByStage pipeline={data?.pipeline || []} />
         </div>
 
-        {/* ── Right Column ──────────────────────────────── */}
-        <div className="space-y-5 lg:col-span-3">
-          <Card className="p-6">
-            <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
-            <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
-            <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
-              {currency(stats.revenueWon)}
-            </p>
-            <div className="mt-2 flex items-center justify-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                <ArrowUpRight className="h-3 w-3" /> +14.2% MoM
-              </span>
-              <span className="text-[11px] text-ink-soft">vs last month</span>
-            </div>
-            <BalanceChart trend={data?.trend || []} />
-            <div className="mt-4 flex items-center gap-2">
-              <Link
-                to="/leads"
-                className="tour-add-lead brand-gradient brand-gradient-hover inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-white transition"
-              >
-                <Plus className="h-4 w-4" /> Add Lead
-              </Link>
-              <Link
-                to="/tasks"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-line text-sm font-medium text-ink transition hover:bg-surface-muted"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Task
-              </Link>
+        {/* ── Right Column: AI Insights & Goals (4 Cols) ── */}
+        <div className="space-y-5 lg:col-span-4">
+          <AiInsightsCard />
+          
+          {/* Quota Attainment Card */}
+          <Card className="p-6 border-brand-200 bg-brand-50/30">
+            <SectionHeading title="Quota Attainment" subtitle="Q3 Revenue Target" to="/pipeline" />
+            <div className="mt-5">
+              <div className="flex justify-between items-end mb-2">
+                <p className="font-display text-2xl font-bold tracking-tight text-ink">
+                  {currency(stats.revenueWon, { compact: true })}
+                </p>
+                <p className="text-sm font-semibold text-ink-soft">
+                  Target: {currency(12000000, { compact: true })}
+                </p>
+              </div>
+              
+              <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-brand-500 rounded-full transition-all duration-1000" 
+                  style={{ width: `${Math.min(100, Math.round(((stats.revenueWon || 0) / 12000000) * 100))}%` }} 
+                />
+              </div>
+              
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                    <ArrowUpRight className="h-3 w-3" /> +14.2% MoM
+                  </span>
+                  <span className="text-[11px] text-ink-soft">vs last month</span>
+                </div>
+                <span className="text-xs font-bold text-brand-700">
+                  {Math.round(((stats.revenueWon || 0) / 12000000) * 100)}% to Goal
+                </span>
+              </div>
             </div>
           </Card>
 
-          <AiInsightsCard />
-          <WinLossBySource data={data?.winLossBySource} />
-          <TopDeals leads={leads} />
-          <QuotaWidget stats={stats} />
+          <TopContactsCard contacts={contacts} />
+          <SalesIntelWidget />
+          
+          {/* Win/Loss by Source */}
+          <Card className="p-5">
+            <SectionHeading title="Acquisition Sources" subtitle="Win/loss breakdown" />
+            <div className="mt-4 space-y-3">
+              {(data?.winLossBySource || []).map((src) => (
+                <div key={src.source} className="flex items-center justify-between text-sm">
+                  <span className="text-ink-soft">{src.source || "Other"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-ink">{src.winRate}%</span>
+                    <span className="text-[10px] text-ink-soft w-12 text-right">({src.won}/{src.total})</span>
+                  </div>
+                </div>
+              ))}
+              {(!data?.winLossBySource || data.winLossBySource.length === 0) && (
+                <p className="text-xs text-ink-soft text-center py-2">No source data available.</p>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
     </div>

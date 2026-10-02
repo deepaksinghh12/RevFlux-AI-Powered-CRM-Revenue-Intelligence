@@ -88,8 +88,9 @@ export function Sidebar({ onNavigate }) {
             <p className="truncate text-sm font-semibold text-ink">
               {activeOrg?.name || "Workspace"}
             </p>
-            <p className="truncate text-xs capitalize text-ink-soft">
-              {user?.name}
+            <p className="truncate text-xs capitalize text-ink-soft flex items-center gap-1">
+              {user?.name} 
+              <span className="text-[10px] bg-brand-100 text-brand-700 px-1 rounded ml-1 font-bold uppercase tracking-wider">{activeOrg?.role || "member"}</span>
             </p>
           </div>
         </button>

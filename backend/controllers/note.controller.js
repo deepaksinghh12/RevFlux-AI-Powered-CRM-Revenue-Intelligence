@@ -36,7 +36,7 @@ export const createNote = asyncHandler(async (req, res) => {
   }
 
   const note = await Note.create({
-    owner: req.user._id, organization: req.organization._id,
+    organization: req.organization._id,
     content,
     lead: lead || null,
     contact: contact || null,
@@ -54,7 +54,7 @@ export const updateNote = asyncHandler(async (req, res) => {
 
   const note = await Note.findOne({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id
+    organization: req.organization._id
   });
 
   if (!note) {
@@ -77,7 +77,7 @@ export const updateNote = asyncHandler(async (req, res) => {
 export const deleteNote = asyncHandler(async (req, res) => {
   const note = await Note.findOneAndDelete({
     _id: req.params.id,
-    owner: req.user._id, organization: req.organization._id
+    organization: req.organization._id
   });
 
   if (!note) {

@@ -20,3 +20,4 @@ export {
 } from "./Dropdown";
 export { Tabs } from "./Tabs";
 export { Skeleton, Spinner } from "./Skeleton";
+export * from "./CommandPalette";

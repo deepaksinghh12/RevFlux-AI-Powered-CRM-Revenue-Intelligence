@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+    },
 
     avatar: {
       type: String,
