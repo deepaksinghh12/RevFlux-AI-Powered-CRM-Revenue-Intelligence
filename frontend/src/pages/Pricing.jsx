@@ -5,6 +5,8 @@ import { Button, Card, Badge } from "../components/ui";
 import { PRICING_PLANS } from "../lib/pricingConfig";
 import { currency } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
+import { PublicHeader } from "../components/layout/PublicHeader";
+import { PublicFooter } from "../components/layout/PublicFooter";
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -13,29 +15,7 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-surface-muted">
-      {/* Header Bar */}
-      <header className="border-b border-line bg-surface/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <span className="font-display text-xl font-bold text-ink">RevFlux</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            {user ? (
-              <Button onClick={() => navigate("/")}>Go to Workspace</Button>
-            ) : (
-              <>
-                <Button variant="ghost" onClick={() => navigate("/login")}>
-                  Sign In
-                </Button>
-                <Button onClick={() => navigate("/register")}>Start Free</Button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Hero Header */}
       <section className="mx-auto max-w-5xl px-6 pt-16 pb-12 text-center">
@@ -130,6 +110,8 @@ export default function Pricing() {
           })}
         </div>
       </section>
+      
+      <PublicFooter />
     </div>
   );
 }

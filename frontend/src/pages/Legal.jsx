@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sparkles, ShieldCheck, ArrowLeft, FileText, Lock, Scale } from "lucide-react";
 import { Button, Badge, Card } from "../components/ui";
+import { PublicHeader } from "../components/layout/PublicHeader";
+import { PublicFooter } from "../components/layout/PublicFooter";
 
 export default function Legal() {
   const location = useLocation();
@@ -16,20 +18,7 @@ export default function Legal() {
   return (
     <div className="min-h-screen bg-surface-muted text-ink">
       {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-line bg-surface/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-xs">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <span className="font-display text-xl font-bold text-ink">RevFlux</span>
-          </Link>
-
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Main Container */}
       <main className="mx-auto max-w-4xl px-4 sm:px-6 py-10 sm:py-16 space-y-8">
@@ -187,10 +176,7 @@ export default function Legal() {
         </Card>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-line bg-surface py-6 text-center text-xs text-ink-soft">
-        <p>© 2026 RevFlux Inc. All rights reserved.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

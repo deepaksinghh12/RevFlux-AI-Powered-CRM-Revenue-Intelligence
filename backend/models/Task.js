@@ -6,6 +6,11 @@ export const TASK_PRIORITIES = ["Low", "Medium", "High"];
 
 const taskSchema = new mongoose.Schema(
   {
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      index: true,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

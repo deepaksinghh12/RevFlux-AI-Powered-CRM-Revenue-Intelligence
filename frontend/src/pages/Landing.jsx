@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { Button, Card, Badge } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { PublicHeader } from "../components/layout/PublicHeader";
+import { PublicFooter } from "../components/layout/PublicFooter";
 
 const PHRASES = [
   "Stop Losing Sales Leads.",
@@ -73,46 +75,8 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-muted text-ink">
-      {/* ── Public Navbar ────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-line bg-surface/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3.5">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-xs">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <span className="font-display text-xl font-bold text-ink">RevFlux</span>
-          </Link>
-
-          <nav className="hidden items-center gap-8 text-sm font-medium text-ink-soft md:flex">
-            <a href="#about" className="hover:text-ink transition">About Us</a>
-            <a href="#features" className="hover:text-ink transition">Features</a>
-            <a href="#how-it-works" className="hover:text-ink transition">How It Works</a>
-            <Link to="/pricing" className="hover:text-ink transition">Pricing</Link>
-            <a href="#faq" className="hover:text-ink transition">FAQ</a>
-          </nav>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {user ? (
-              <Button size="sm" onClick={() => navigate("/")}>
-                Workspace <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
-                  Sign In
-                </Button>
-                <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => navigate("/demo")}>
-                  <Play className="h-3.5 w-3.5 fill-current text-brand-600" /> View Demo
-                </Button>
-                <Button size="sm" onClick={() => navigate("/register")}>
-                  Start Free
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-surface-muted text-ink flex flex-col">
+      <PublicHeader />
 
       {/* ── Hero Section ────────────────────────────────────────────── */}
       <section className="relative overflow-hidden pt-14 sm:pt-20 pb-12 sm:pb-16 lg:pt-24 lg:pb-24">
@@ -370,75 +334,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-line bg-surface pt-12 sm:pt-16 pb-8 text-xs text-ink-soft">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5 pb-10 border-b border-line">
-            {/* Brand Column */}
-            <div className="space-y-4 lg:col-span-2">
-              <Link to="/" className="flex items-center gap-2.5">
-                <div className="brand-gradient flex h-8 w-8 items-center justify-center rounded-xl text-white shadow-xs">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <span className="font-display text-lg font-bold text-ink">RevFlux</span>
-              </Link>
-              <p className="text-xs text-ink-soft leading-relaxed max-w-sm">
-                AI-powered revenue intelligence platform designed specifically for small sales teams to track leads, automate follow-ups, and close deals faster.
-              </p>
-              <div className="flex items-center gap-2 pt-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[11px] font-medium text-ink-soft">All Systems Operational</span>
-              </div>
-            </div>
-
-            {/* Product Column */}
-            <div className="space-y-3">
-              <p className="font-bold text-ink uppercase tracking-wider text-[11px]">Product</p>
-              <ul className="space-y-2">
-                <li><a href="#features" className="hover:text-ink transition">AI Attention Center</a></li>
-                <li><a href="#features" className="hover:text-ink transition">Kanban Pipeline</a></li>
-                <li><a href="#how-it-works" className="hover:text-ink transition">CSV Importer</a></li>
-                <li><Link to="/pricing" className="hover:text-ink transition">Pricing Plans</Link></li>
-                <li><Link to="/demo" className="hover:text-ink transition">Interactive Demo</Link></li>
-              </ul>
-            </div>
-
-            {/* Company Column */}
-            <div className="space-y-3">
-              <p className="font-bold text-ink uppercase tracking-wider text-[11px]">Company</p>
-              <ul className="space-y-2">
-                <li><a href="#about" className="hover:text-ink transition">About Us</a></li>
-                <li><a href="#how-it-works" className="hover:text-ink transition">How It Works</a></li>
-                <li><a href="#faq" className="hover:text-ink transition">FAQ</a></li>
-                <li><Link to="/login" className="hover:text-ink transition">Sign In</Link></li>
-                <li><Link to="/register" className="hover:text-ink transition">Create Account</Link></li>
-              </ul>
-            </div>
-
-            {/* Legal Column */}
-            <div className="space-y-3">
-              <p className="font-bold text-ink uppercase tracking-wider text-[11px]">Legal & Trust</p>
-              <ul className="space-y-2">
-                <li><Link to="/privacy" className="hover:text-ink transition">Privacy Policy</Link></li>
-                <li><Link to="/terms" className="hover:text-ink transition">Terms of Service</Link></li>
-                <li><Link to="/security" className="hover:text-ink transition">Security Architecture</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-            <p>© 2026 RevFlux Inc. All rights reserved.</p>
-            <div className="flex gap-6">
-              <Link to="/privacy" className="hover:underline">Privacy</Link>
-              <Link to="/terms" className="hover:underline">Terms</Link>
-              <Link to="/security" className="hover:underline">Security</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -20,6 +20,8 @@ import Pricing from "./pages/Pricing";
 import Legal from "./pages/Legal";
 import Outreach from "./pages/Outreach";
 import Team from "./pages/Team";
+import Download from "./pages/Download";
+import GenericPage from "./pages/GenericPage";
 import { useAuth } from "./context/AuthContext";
 
 export default function App() {
@@ -35,6 +37,11 @@ export default function App() {
       <Route path="/privacy" element={<Legal />} />
       <Route path="/terms" element={<Legal />} />
       <Route path="/security" element={<Legal />} />
+      <Route path="/download" element={<Download />} />
+      <Route path="/features" element={<GenericPage title="Features" subtitle="Explore the powerful tools that make RevFlux the ultimate sales workspace." />} />
+      <Route path="/solutions" element={<GenericPage title="Solutions" subtitle="Tailored revenue workflows for teams of all sizes." />} />
+      <Route path="/about" element={<GenericPage title="About Us" subtitle="Our mission is to help small sales teams close bigger deals." />} />
+      <Route path="/faq" element={<GenericPage title="Help & FAQ" subtitle="Find answers to common questions about RevFlux." />} />
       <Route path="/forms/:ownerId" element={<PublicCaptureForm />} />
 
       {/* Stand-alone Onboarding Wizard */}
