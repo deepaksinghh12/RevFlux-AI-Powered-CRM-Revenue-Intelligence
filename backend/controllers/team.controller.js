@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import OrganizationMembership from "../models/OrganizationMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -6,37 +7,28 @@ import { ApiError } from "../utils/ApiError.js";
 // GET TEAM MEMBERS
 // ===============================
 export const getTeamMembers = asyncHandler(async (req, res) => {
-  const currentCompany = req.user.company || "";
-  
-  // Find team members sharing company or default list
-  let query = {};
-  if (req.user.role === "superadmin") {
-    query = {}; // Super admin sees all users
-  } else if (currentCompany) {
-    query = { company: currentCompany };
-  } else {
-    query = { _id: req.user._id };
-  }
+  const orgId = req.organization._id;
 
-  const members = await User.find(query)
-    .select("-password")
-    .sort({ createdAt: -1 });
+  const memberships = await OrganizationMembership.find({
+    organization: orgId,
+    status: { $in: ["active", "invited"] },
+  }).populate("user", "-password");
 
   res.json({
     success: true,
-    count: members.length,
-    members: members.map((m) => ({
-      id: m._id,
-      name: m.name,
-      email: m.email,
-      role: m.role || "owner",
-      company: m.company || "",
-      avatar: m.avatar || "",
-      phone: m.phone || "",
-      jobTitle: m.jobTitle || "Sales Leader",
-      department: m.department || "Revenue Operations",
-      plan: m.plan || "free",
-      createdAt: m.createdAt,
+    count: memberships.length,
+    members: memberships.map((m) => ({
+      id: m.user._id,
+      membershipId: m._id,
+      name: m.user.name,
+      email: m.user.email,
+      role: m.role,
+      status: m.status,
+      avatar: m.user.avatar || "",
+      phone: m.user.phone || "",
+      jobTitle: m.user.jobTitle || "",
+      department: m.user.department || "",
+      joinedAt: m.createdAt,
     })),
   });
 });
@@ -46,86 +38,109 @@ export const getTeamMembers = asyncHandler(async (req, res) => {
 // ===============================
 export const inviteTeamMember = asyncHandler(async (req, res) => {
   const { name, email, role, jobTitle, department } = req.body;
+  const orgId = req.organization._id;
 
   if (!name || !email) {
     throw new ApiError(400, "Name and email are required to invite a team member");
   }
 
+  const validRoles = ["admin", "manager", "rep", "viewer"];
+  const assignedRole = validRoles.includes(role) ? role : "rep";
+
+  // Check if user already exists
   let user = await User.findOne({ email: email.toLowerCase() });
 
-  if (user) {
-    user.company = req.user.company || user.company;
-    if (role && ["owner", "ops_head", "manager", "rep"].includes(role)) {
-      user.role = role;
-    }
-    if (jobTitle) user.jobTitle = jobTitle;
-    if (department) user.department = department;
-    await user.save();
-  } else {
+  if (!user) {
+    // Create a new user with a temporary password
     const tempPassword = `RevFlux#${Math.floor(100000 + Math.random() * 900000)}`;
     user = await User.create({
       name,
       email: email.toLowerCase(),
       password: tempPassword,
-      company: req.user.company || "My Company",
-      role: role || "rep",
       jobTitle: jobTitle || "Sales Representative",
       department: department || "Sales",
     });
   }
 
+  // Check if already a member
+  const existing = await OrganizationMembership.findOne({
+    user: user._id,
+    organization: orgId,
+  });
+
+  if (existing) {
+    if (existing.status === "suspended") {
+      existing.status = "active";
+      existing.role = assignedRole;
+      await existing.save();
+      return res.json({
+        success: true,
+        message: `Reactivated ${user.name} in this workspace as ${assignedRole.toUpperCase()}.`,
+      });
+    }
+    throw new ApiError(409, `${user.email} is already a member of this workspace.`);
+  }
+
+  await OrganizationMembership.create({
+    user: user._id,
+    organization: orgId,
+    role: assignedRole,
+    status: "invited",
+  });
+
   res.status(201).json({
     success: true,
-    message: `Team member ${user.name} (${user.role.toUpperCase()}) added successfully!`,
+    message: `Invited ${user.name} (${assignedRole.toUpperCase()}) to the workspace!`,
     member: {
       id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role,
-      jobTitle: user.jobTitle,
-      department: user.department,
+      role: assignedRole,
+      status: "invited",
     },
   });
 });
 
 // ===============================
-// UPDATE MEMBER ROLE (Owner/SuperAdmin Only)
+// UPDATE MEMBER ROLE
 // ===============================
 export const updateMemberRole = asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const { role, jobTitle, department } = req.body;
+  const { role } = req.body;
+  const orgId = req.organization._id;
 
-  if (!role || !["superadmin", "owner", "ops_head", "manager", "rep"].includes(role)) {
-    throw new ApiError(400, "Invalid RBAC role specified");
+  const validRoles = ["owner", "admin", "manager", "rep", "viewer"];
+  if (!role || !validRoles.includes(role)) {
+    throw new ApiError(400, "Invalid role specified");
   }
 
-  const member = await User.findById(userId);
-  if (!member) {
-    throw new ApiError(404, "Team member not found");
+  const membership = await OrganizationMembership.findOne({
+    user: userId,
+    organization: orgId,
+  }).populate("user", "name email");
+
+  if (!membership) {
+    throw new ApiError(404, "Team member not found in this workspace");
   }
 
-  // Prevent demoting last owner
-  if (member._id.toString() === req.user._id.toString() && role !== "owner" && req.user.role !== "superadmin") {
-    throw new ApiError(400, "You cannot demote yourself from Owner mode");
+  // Prevent demoting the last owner
+  if (membership.role === "owner" && role !== "owner") {
+    const ownerCount = await OrganizationMembership.countDocuments({
+      organization: orgId,
+      role: "owner",
+      status: "active",
+    });
+    if (ownerCount <= 1) {
+      throw new ApiError(400, "Cannot demote the last owner of this workspace");
+    }
   }
 
-  member.role = role;
-  if (jobTitle !== undefined) member.jobTitle = jobTitle;
-  if (department !== undefined) member.department = department;
-
-  await member.save();
+  membership.role = role;
+  await membership.save();
 
   res.json({
     success: true,
-    message: `Updated ${member.name}'s role to ${role.toUpperCase()}`,
-    member: {
-      id: member._id,
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      jobTitle: member.jobTitle,
-      department: member.department,
-    },
+    message: `Updated ${membership.user.name}'s role to ${role.toUpperCase()}`,
   });
 });
 
@@ -134,21 +149,30 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
 // ===============================
 export const removeTeamMember = asyncHandler(async (req, res) => {
   const { userId } = req.params;
+  const orgId = req.organization._id;
 
   if (userId === req.user._id.toString()) {
     throw new ApiError(400, "You cannot remove yourself from the workspace");
   }
 
-  const member = await User.findById(userId);
-  if (!member) {
-    throw new ApiError(404, "Team member not found");
+  const membership = await OrganizationMembership.findOne({
+    user: userId,
+    organization: orgId,
+  }).populate("user", "name");
+
+  if (!membership) {
+    throw new ApiError(404, "Team member not found in this workspace");
   }
 
-  member.company = ""; // Unlink from workspace
-  await member.save();
+  if (membership.role === "owner") {
+    throw new ApiError(400, "Cannot remove the workspace owner. Transfer ownership first.");
+  }
+
+  membership.status = "suspended";
+  await membership.save();
 
   res.json({
     success: true,
-    message: `Removed ${member.name} from the workspace`,
+    message: `Removed ${membership.user.name} from the workspace`,
   });
 });

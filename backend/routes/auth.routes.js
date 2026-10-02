@@ -11,7 +11,7 @@ import {
   createRazorpayOrder,
 } from "../controllers/auth.controller.js";
 
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { validateBody } from "../middleware/validate.middleware.js";
 import { authRateLimiter } from "../middleware/rateLimit.middleware.js";
 import { authSchemas } from "../validators/schemas.js";
@@ -24,8 +24,8 @@ router.post("/google", authRateLimiter, googleLogin);
 
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
-router.post("/seed-demo", protect, seedDemoData);
-router.post("/create-razorpay-order", protect, createRazorpayOrder);
-router.post("/subscribe", protect, validateBody(authSchemas.subscribe), subscribePlan);
+router.post("/seed-demo", protect, requireOrg, seedDemoData);
+router.post("/create-razorpay-order", protect, requireOrg, createRazorpayOrder);
+router.post("/subscribe", protect, requireOrg, validateBody(authSchemas.subscribe), subscribePlan);
 
 export default router;

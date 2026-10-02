@@ -30,7 +30,7 @@ const NAV = [
 ];
 
 export function Sidebar({ onNavigate }) {
-  const { user, logout } = useAuth();
+  const { user, activeOrg, switchOrganization, logout } = useAuth();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [avatar, setAvatar] = useState(() => localStorage.getItem("revflux_avatar") || "");
 
@@ -75,54 +75,63 @@ export function Sidebar({ onNavigate }) {
         ))}
       </nav>
 
-      {/* User Profile */}
+      {/* User Profile / Workspace */}
       <div className="border-t border-line p-3">
         <button
           onClick={() => setProfileModalOpen(true)}
           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-surface-muted"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold uppercase text-brand-700">
-            {displayAvatar}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold uppercase text-white shadow-xs">
+            {activeOrg?.name?.charAt(0) || "W"}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-ink">
-              {user?.name || "My Workspace"}
+              {activeOrg?.name || "Workspace"}
             </p>
             <p className="truncate text-xs capitalize text-ink-soft">
-              {user?.role?.replace("_", " ") || "Sales Rep"}
+              {user?.name}
             </p>
           </div>
         </button>
       </div>
 
-      <Dialog open={profileModalOpen} onClose={() => setProfileModalOpen(false)} title="Customize Profile">
+      <Dialog open={profileModalOpen} onClose={() => setProfileModalOpen(false)} title="Workspace Options">
         <div className="space-y-6">
-          <div>
-            <h4 className="mb-3 text-sm font-semibold text-ink">Choose Avatar</h4>
-            <div className="flex flex-wrap gap-3">
-              {DOODLES.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleSelectAvatar(emoji)}
-                  className={cn(
-                    "flex h-12 w-12 items-center justify-center rounded-2xl border-2 text-2xl transition",
-                    avatar === emoji
-                      ? "border-brand-500 bg-brand-50"
-                      : "border-line bg-surface hover:border-brand-500 hover:bg-brand-50"
-                  )}
-                >
-                  {emoji}
-                </button>
-              ))}
-              <button className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-dashed border-line bg-surface text-ink-soft transition hover:border-brand-500 hover:text-brand-600">
-                <span className="text-xl">+</span>
-              </button>
+          
+          {/* Workspace Switcher */}
+          {user?.workspaces && user.workspaces.length > 1 && (
+            <div>
+              <h4 className="mb-2 text-sm font-semibold text-ink">Switch Workspace</h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                {user.workspaces.map((org) => (
+                  <button
+                    key={org.id}
+                    onClick={() => {
+                      switchOrganization(org.id);
+                      setProfileModalOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition text-sm",
+                      activeOrg?.id === org.id 
+                        ? "bg-brand-50 border border-brand-200 text-brand-800" 
+                        : "bg-surface hover:bg-surface-muted text-ink border border-line"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700">
+                        {org.name.charAt(0)}
+                      </div>
+                      <span className="truncate">{org.name}</span>
+                    </div>
+                    {activeOrg?.id === org.id && <span className="text-xs font-medium text-brand-600">Active</span>}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="mt-2 text-xs text-ink-soft">Select a doodle or upload a custom image.</p>
-          </div>
+          )}
 
           <div className="border-t border-line pt-4">
-            <h4 className="mb-3 text-sm font-semibold text-ink">Account Settings</h4>
+            <h4 className="mb-3 text-sm font-semibold text-ink">Settings</h4>
             <div className="space-y-2">
               <NavLink
                 to="/settings"

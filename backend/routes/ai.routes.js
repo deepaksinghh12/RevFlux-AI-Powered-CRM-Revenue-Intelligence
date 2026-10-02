@@ -9,12 +9,13 @@ import {
   getAttentionLeads,
   copilotChat,
 } from "../controllers/ai.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { aiRateLimiter } from "../middleware/rateLimit.middleware.js";
 
 const router = Router();
 
 router.use(protect);
+router.use(requireOrg);
 
 router.post("/chat", aiRateLimiter, copilotChat);
 
@@ -33,7 +34,7 @@ router
 
 router.get("/pipeline-status", async (req, res, next) => {
   try {
-    const stats = await buildPipelineStatus(req.user._id);
+    const stats = await buildPipelineStatus(req.organization._id);
     res.json({ success: true, stats });
   } catch (err) {
     next(err);

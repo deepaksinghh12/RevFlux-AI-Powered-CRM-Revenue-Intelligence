@@ -25,12 +25,6 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    role: {
-      type: String,
-      enum: ["superadmin", "owner", "ops_head", "manager", "rep"],
-      default: "owner",
-    },
-
     phone: {
       type: String,
       trim: true,
@@ -55,48 +49,10 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    company: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
     avatar: {
       type: String,
       trim: true,
       default: "",
-    },
-
-    plan: {
-      type: String,
-      enum: ["free", "starter", "growth", "business"],
-      default: "free",
-    },
-
-    subscriptionStatus: {
-      type: String,
-      enum: ["active", "trialing", "canceled"],
-      default: "trialing",
-    },
-
-    leadLimit: {
-      type: Number,
-      default: 50,
-    },
-
-    aiCallCount: {
-      type: Number,
-      default: 0,
-    },
-
-    lastPaymentId: {
-      type: String,
-      default: "",
-    },
-
-    lastBilledAt: {
-      type: Date,
-      default: null,
     },
   },
   {

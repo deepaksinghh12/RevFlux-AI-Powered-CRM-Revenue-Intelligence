@@ -45,11 +45,11 @@ const DEFAULT_TEMPLATES = [
 // GET EMAIL TEMPLATES
 // ===============================
 export const getTemplates = asyncHandler(async (req, res) => {
-  let templates = await EmailTemplate.find({ owner: req.user._id }).sort({ createdAt: -1 });
+  let templates = await EmailTemplate.find({ organization: req.organization._id }).sort({ createdAt: -1 });
 
   // Seed default templates if user has none
   if (templates.length === 0) {
-    const seeded = DEFAULT_TEMPLATES.map((t) => ({ ...t, owner: req.user._id }));
+    const seeded = DEFAULT_TEMPLATES.map((t) => ({ ...t, owner: req.user._id, organization: req.organization._id }));
     templates = await EmailTemplate.insertMany(seeded);
   }
 
@@ -66,7 +66,7 @@ export const createTemplate = asyncHandler(async (req, res) => {
   }
 
   const template = await EmailTemplate.create({
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
     name,
     category: category || "Follow-up",
     subject,
@@ -81,7 +81,7 @@ export const createTemplate = asyncHandler(async (req, res) => {
 // UPDATE TEMPLATE
 // ===============================
 export const updateTemplate = asyncHandler(async (req, res) => {
-  const template = await EmailTemplate.findOne({ _id: req.params.id, owner: req.user._id });
+  const template = await EmailTemplate.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!template) throw new ApiError(404, "Template not found");
 
   const { name, category, subject, body, aiInstruction } = req.body;
@@ -99,7 +99,7 @@ export const updateTemplate = asyncHandler(async (req, res) => {
 // DELETE TEMPLATE
 // ===============================
 export const deleteTemplate = asyncHandler(async (req, res) => {
-  const template = await EmailTemplate.findOneAndDelete({ _id: req.params.id, owner: req.user._id });
+  const template = await EmailTemplate.findOneAndDelete({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!template) throw new ApiError(404, "Template not found");
   res.json({ success: true, message: "Template deleted successfully" });
 });
@@ -108,20 +108,20 @@ export const deleteTemplate = asyncHandler(async (req, res) => {
 // GET OUTREACH SEQUENCES (CADENCES)
 // ===============================
 export const getSequences = asyncHandler(async (req, res) => {
-  let sequences = await OutreachSequence.find({ owner: req.user._id })
+  let sequences = await OutreachSequence.find({ organization: req.organization._id })
     .populate("template")
     .sort({ createdAt: -1 });
 
   // Seed default sequences if user has none
   if (sequences.length === 0) {
-    const templates = await EmailTemplate.find({ owner: req.user._id });
+    const templates = await EmailTemplate.find({ organization: req.organization._id });
     const proposalTpl = templates.find((t) => t.category === "Proposal") || templates[0];
     const reengageTpl = templates.find((t) => t.category === "Re-engagement") || templates[0];
 
     if (proposalTpl && reengageTpl) {
       await OutreachSequence.create([
         {
-          owner: req.user._id,
+          owner: req.user._id, organization: req.organization._id,
           name: "Proposal Stage Automated Cadence",
           triggerType: "stage_change",
           triggerStage: "Proposal",
@@ -129,7 +129,7 @@ export const getSequences = asyncHandler(async (req, res) => {
           isActive: true,
         },
         {
-          owner: req.user._id,
+          owner: req.user._id, organization: req.organization._id,
           name: "At-Risk Deal Recovery Sequence",
           triggerType: "at_risk",
           riskThreshold: 60,
@@ -138,7 +138,7 @@ export const getSequences = asyncHandler(async (req, res) => {
         },
       ]);
 
-      sequences = await OutreachSequence.find({ owner: req.user._id })
+      sequences = await OutreachSequence.find({ organization: req.organization._id })
         .populate("template")
         .sort({ createdAt: -1 });
     }
@@ -157,7 +157,7 @@ export const createSequence = asyncHandler(async (req, res) => {
   }
 
   const sequence = await OutreachSequence.create({
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
     name,
     triggerType,
     triggerStage: triggerStage || "Proposal",
@@ -173,7 +173,7 @@ export const createSequence = asyncHandler(async (req, res) => {
 // TOGGLE SEQUENCE ACTIVE
 // ===============================
 export const toggleSequence = asyncHandler(async (req, res) => {
-  const sequence = await OutreachSequence.findOne({ _id: req.params.id, owner: req.user._id });
+  const sequence = await OutreachSequence.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!sequence) throw new ApiError(404, "Sequence not found");
 
   sequence.isActive = !sequence.isActive;
@@ -186,7 +186,7 @@ export const toggleSequence = asyncHandler(async (req, res) => {
 // GET OUTREACH DRAFT QUEUE
 // ===============================
 export const getQueue = asyncHandler(async (req, res) => {
-  const queue = await OutreachQueue.find({ owner: req.user._id })
+  const queue = await OutreachQueue.find({ organization: req.organization._id })
     .populate("lead", "name company email status aiRiskScore value")
     .populate("sequence", "name triggerType")
     .sort({ createdAt: -1 });
@@ -198,7 +198,7 @@ export const getQueue = asyncHandler(async (req, res) => {
 // SEND QUEUE ITEM
 // ===============================
 export const sendQueueItem = asyncHandler(async (req, res) => {
-  const queueItem = await OutreachQueue.findOne({ _id: req.params.id, owner: req.user._id });
+  const queueItem = await OutreachQueue.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!queueItem) throw new ApiError(404, "Draft not found in queue");
 
   queueItem.status = "sent";
@@ -212,7 +212,7 @@ export const sendQueueItem = asyncHandler(async (req, res) => {
 // DISMISS QUEUE ITEM
 // ===============================
 export const dismissQueueItem = asyncHandler(async (req, res) => {
-  const queueItem = await OutreachQueue.findOneAndDelete({ _id: req.params.id, owner: req.user._id });
+  const queueItem = await OutreachQueue.findOneAndDelete({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!queueItem) throw new ApiError(404, "Draft not found in queue");
   res.json({ success: true, message: "Draft dismissed from queue" });
 });

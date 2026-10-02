@@ -2,6 +2,7 @@ import axios from "axios";
 
 /* localStorage key for the auth token — used by AuthContext and the API client. */
 export const TOKEN_KEY = "ttp_crm_token";
+export const ACTIVE_ORG_KEY = "revflux_active_org";
 
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -17,6 +18,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(TOKEN_KEY);
+    const orgId = localStorage.getItem(ACTIVE_ORG_KEY);
     const isValid =
       token &&
       token !== "null" &&
@@ -25,6 +27,10 @@ api.interceptors.request.use(
 
     if (isValid) {
       config.headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    if (orgId && orgId !== "null" && orgId !== "undefined") {
+      config.headers.set("X-Organization-Id", orgId);
     }
 
     return config;

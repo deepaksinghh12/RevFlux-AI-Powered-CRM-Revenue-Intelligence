@@ -16,7 +16,7 @@ import { triggerCadenceForLead } from "./outreach.controller.js";
 export const getLeads = asyncHandler(async (req, res) => {
   const { status, priority, source, search, sort } = req.query;
 
-  const query = { owner: req.user._id };
+  const query = { organization: req.organization._id };
 
   if (status && LEAD_STATUSES.includes(status)) {
     query.status = status;
@@ -66,15 +66,15 @@ export const getLeads = asyncHandler(async (req, res) => {
 // GET SINGLE LEAD ACTIVITY TIMELINE
 // ===============================
 export const getLeadActivity = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
   if (!lead) {
     throw new ApiError(404, "Lead not found");
   }
 
   // Fetch associated notes and tasks in parallel
   const [notes, tasks] = await Promise.all([
-    Note.find({ owner: req.user._id, lead: lead._id }).sort({ createdAt: -1 }),
-    Task.find({ owner: req.user._id, relatedLead: lead._id }).sort({ createdAt: -1 }),
+    Note.find({ owner: req.user._id, organization: req.organization._id, lead: lead._id }).sort({ createdAt: -1 }),
+    Task.find({ owner: req.user._id, organization: req.organization._id, relatedLead: lead._id }).sort({ createdAt: -1 }),
   ]);
 
   // Combine into unified chronological activity timeline
@@ -133,7 +133,7 @@ export const getLeadActivity = asyncHandler(async (req, res) => {
 export const getLead = asyncHandler(async (req, res) => {
   const lead = await Lead.findOne({
     _id: req.params.id,
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
   });
 
   if (!lead) {
@@ -176,13 +176,13 @@ export const createLead = asyncHandler(async (req, res) => {
   let leadOrder = order;
   if (typeof leadOrder !== "number") {
     leadOrder = await Lead.countDocuments({
-      owner: req.user._id,
+      owner: req.user._id, organization: req.organization._id,
       status: targetStatus,
     });
   }
 
   const lead = await Lead.create({
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
     name: name.trim(),
     email: email ? email.trim() : undefined,
     phone: phone ? phone.trim() : "",
@@ -210,7 +210,7 @@ export const createLead = asyncHandler(async (req, res) => {
 export const updateLead = asyncHandler(async (req, res) => {
   const lead = await Lead.findOne({
     _id: req.params.id,
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
   });
 
   if (!lead) {
@@ -290,7 +290,7 @@ export const updateLead = asyncHandler(async (req, res) => {
 export const deleteLead = asyncHandler(async (req, res) => {
   const lead = await Lead.findOne({
     _id: req.params.id,
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
   });
 
   if (!lead) {
@@ -336,7 +336,7 @@ export const reorderLeads = asyncHandler(async (req, res) => {
         updateOne: {
           filter: {
             _id: item.id || item._id,
-            owner: req.user._id,
+            owner: req.user._id, organization: req.organization._id,
           },
           update: { $set: updateData },
         },
@@ -374,7 +374,7 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
     );
   }
 
-  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");
@@ -404,7 +404,7 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
 
     // Optional: Auto-create a Note that the email was sent
     await Note.create({
-      owner: req.user._id,
+      owner: req.user._id, organization: req.organization._id,
       lead: lead._id,
       content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
     });
@@ -432,7 +432,7 @@ export const importLeads = asyncHandler(async (req, res) => {
   }
 
   // Fetch existing emails for this owner to prevent duplicate ingestion
-  const existingLeads = await Lead.find({ owner: req.user._id, email: { $ne: "" } }).select("email");
+  const existingLeads = await Lead.find({ owner: req.user._id, organization: req.organization._id, email: { $ne: "" } }).select("email");
   const existingEmailSet = new Set(existingLeads.map((l) => l.email.toLowerCase()));
 
   const validToInsert = [];
@@ -456,7 +456,7 @@ export const importLeads = asyncHandler(async (req, res) => {
     if (email) existingEmailSet.add(email);
 
     validToInsert.push({
-      owner: req.user._id,
+      owner: req.user._id, organization: req.organization._id,
       name: name || "Unknown Lead",
       company: item.company ? item.company.trim() : "",
       email: email,
@@ -486,7 +486,7 @@ export const importLeads = asyncHandler(async (req, res) => {
 // UPLOAD ATTACHMENT
 // ===============================
 export const uploadAttachment = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");
@@ -533,7 +533,7 @@ export const uploadAttachment = asyncHandler(async (req, res) => {
 // DELETE ATTACHMENT
 // ===============================
 export const deleteAttachment = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id });
+  const lead = await Lead.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");

@@ -4,18 +4,23 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 /**
  * Middleware to enforce plan lead limits before creating or importing leads.
+ * Now reads limits from the Organization (via req.organization) instead of User.
  */
 export const checkLeadLimit = asyncHandler(async (req, res, next) => {
-  const user = req.user;
-  const leadLimit = user.leadLimit ?? 50;
+  const org = req.organization;
+  if (!org) {
+    throw new ApiError(500, "checkLeadLimit requires requireOrg middleware");
+  }
 
-  // Count existing active leads for this user
-  const currentLeadCount = await Lead.countDocuments({ owner: user._id });
+  const leadLimit = org.leadLimit ?? 50;
+
+  // Count existing active leads for this organization
+  const currentLeadCount = await Lead.countDocuments({ organization: org._id });
 
   // If bulk import, check incoming batch length
   const incomingBatchSize = Array.isArray(req.body.leads) ? req.body.leads.length : 1;
 
-  if (currentLeadCount + incomingBatchSize > leadLimit && user.plan === "free") {
+  if (currentLeadCount + incomingBatchSize > leadLimit && org.plan === "free") {
     throw new ApiError(
       402,
       `Lead limit reached (${currentLeadCount}/${leadLimit} leads). Upgrade your RevFlux plan to add more leads.`

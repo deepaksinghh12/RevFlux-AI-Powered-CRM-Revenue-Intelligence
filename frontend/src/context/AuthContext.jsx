@@ -1,32 +1,50 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "../lib/services";
-import { TOKEN_KEY } from "../lib/api";
+import { TOKEN_KEY, ACTIVE_ORG_KEY } from "../lib/api";
 
 const AuthContext = createContext(null);
 
-/**
- * Global auth provider. Persists the JWT in localStorage and restores the
- * session on refresh by calling /auth/me. Exposes login/register/logout.
- */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // true until session is resolved
+  const [activeOrg, setActiveOrg] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // On mount, attempt to restore the session from a stored token.
+  const initActiveOrg = (userData) => {
+    if (!userData || !userData.workspaces || userData.workspaces.length === 0) {
+      setActiveOrg(null);
+      localStorage.removeItem(ACTIVE_ORG_KEY);
+      return;
+    }
+    const savedOrgId = localStorage.getItem(ACTIVE_ORG_KEY);
+    let org = userData.workspaces.find((w) => w.id === savedOrgId);
+    if (!org) {
+      org = userData.workspaces[0];
+    }
+    setActiveOrg(org);
+    localStorage.setItem(ACTIVE_ORG_KEY, org.id);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token || token === "mock-token" || token === "null" || token === "undefined") {
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(ACTIVE_ORG_KEY);
       setUser(null);
+      setActiveOrg(null);
       setLoading(false);
       return;
     }
     authApi
       .me()
-      .then((res) => setUser(res.user))
+      .then((res) => {
+        setUser(res.user);
+        initActiveOrg(res.user);
+      })
       .catch(() => {
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(ACTIVE_ORG_KEY);
         setUser(null);
+        setActiveOrg(null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -34,6 +52,7 @@ export function AuthProvider({ children }) {
   const persist = (res) => {
     localStorage.setItem(TOKEN_KEY, res.token);
     setUser(res.user);
+    initActiveOrg(res.user);
     return res.user;
   };
 
@@ -54,16 +73,32 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(ACTIVE_ORG_KEY);
     setUser(null);
+    setActiveOrg(null);
   }, []);
 
+  const switchOrganization = useCallback((orgId) => {
+    if (!user || !user.workspaces) return;
+    const org = user.workspaces.find((w) => w.id === orgId);
+    if (org) {
+      setActiveOrg(org);
+      localStorage.setItem(ACTIVE_ORG_KEY, org.id);
+      window.location.reload(); // Hard reload to clear component states bound to old org
+    }
+  }, [user]);
+
   const updateUser = useCallback((patch) => {
-    setUser((prev) => ({ ...prev, ...patch }));
+    setUser((prev) => {
+      const updated = { ...prev, ...patch };
+      initActiveOrg(updated);
+      return updated;
+    });
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, googleLogin, register, logout, updateUser }}
+      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

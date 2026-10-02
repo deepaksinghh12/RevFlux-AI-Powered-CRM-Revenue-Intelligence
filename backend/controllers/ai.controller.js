@@ -16,7 +16,7 @@ export const resolveLead = async (req) => {
   const leadId = req.body?.leadId || req.params?.id || req.body?.id;
 
   if (leadId) {
-    const lead = await Lead.findOne({ _id: leadId, owner: req.user._id });
+    const lead = await Lead.findOne({ _id: leadId, owner: req.user._id, organization: req.organization._id });
     if (!lead) {
       throw new ApiError(404, "Lead not found");
     }
@@ -119,8 +119,8 @@ export const generateEmailDraft = asyncHandler(async (req, res) => {
 // ===============================
 // HELPER: BUILD PIPELINE STATUS
 // ===============================
-export const buildPipelineStatus = async (userId) => {
-  const leads = await Lead.find({ owner: userId });
+export const buildPipelineStatus = async (orgId) => {
+  const leads = await Lead.find({ organization: orgId });
   const stages = ["New", "Qualified", "Proposal", "Won", "Lost"];
   const byStage = Object.fromEntries(
     stages.map((s) => [s, { count: 0, value: 0 }])
@@ -165,7 +165,7 @@ export const salesInsights = asyncHandler(async (req, res) => {
   let stats = req.body?.pipelineStats || req.body?.stats;
 
   if (!stats) {
-    stats = await buildPipelineStatus(req.user._id);
+    stats = await buildPipelineStatus(req.organization._id);
   }
 
   const insights = await generateSalesInsights(stats);
@@ -282,10 +282,10 @@ export const copilotChat = asyncHandler(async (req, res) => {
   }
 
   // Inject robust CRM context so the Copilot is context-aware
-  const stats = await buildPipelineStatus(req.user._id);
+  const stats = await buildPipelineStatus(req.organization._id);
   
   // Format top active deals for context
-  const activeLeads = await Lead.find({ owner: req.user._id, status: { $nin: ["Won", "Lost"] } })
+  const activeLeads = await Lead.find({ owner: req.user._id, organization: req.organization._id, status: { $nin: ["Won", "Lost"] } })
     .sort({ value: -1 })
     .limit(5);
 

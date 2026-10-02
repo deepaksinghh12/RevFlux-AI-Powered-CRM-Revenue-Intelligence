@@ -7,7 +7,7 @@ import { ApiError } from "../utils/ApiError.js";
 export const getNotes = asyncHandler(async (req, res) => {
   const { lead, contact, search } = req.query;
 
-  const filter = { owner: req.user._id };
+  const filter = { organization: req.organization._id };
 
   if (lead) filter.lead = lead;
   if (contact) filter.contact = contact;
@@ -36,7 +36,7 @@ export const createNote = asyncHandler(async (req, res) => {
   }
 
   const note = await Note.create({
-    owner: req.user._id,
+    owner: req.user._id, organization: req.organization._id,
     content,
     lead: lead || null,
     contact: contact || null,
@@ -54,7 +54,7 @@ export const updateNote = asyncHandler(async (req, res) => {
 
   const note = await Note.findOne({
     _id: req.params.id,
-    owner: req.user._id
+    owner: req.user._id, organization: req.organization._id
   });
 
   if (!note) {
@@ -77,7 +77,7 @@ export const updateNote = asyncHandler(async (req, res) => {
 export const deleteNote = asyncHandler(async (req, res) => {
   const note = await Note.findOneAndDelete({
     _id: req.params.id,
-    owner: req.user._id
+    owner: req.user._id, organization: req.organization._id
   });
 
   if (!note) {

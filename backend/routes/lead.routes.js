@@ -12,7 +12,7 @@ import {
   deleteAttachment,
   getLeadActivity,
 } from "../controllers/lead.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
 import { checkLeadLimit } from "../middleware/plan.middleware.js";
 import { validateBody } from "../middleware/validate.middleware.js";
@@ -22,8 +22,9 @@ import { requireRole } from "../middleware/rbac.middleware.js";
 
 const router = Router();
 
-// All lead routes require authentication
+// All lead routes require authentication and an active organization
 router.use(protect);
+router.use(requireOrg);
 
 router.route("/")
   .get(getLeads)

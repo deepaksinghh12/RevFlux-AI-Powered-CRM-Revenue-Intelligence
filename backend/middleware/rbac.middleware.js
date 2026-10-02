@@ -7,21 +7,16 @@ import { ApiError } from "../utils/ApiError.js";
  */
 export const requireRole = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user) {
-      throw new ApiError(401, "Authentication required");
+    if (!req.membership) {
+      throw new ApiError(500, "requireRole must be used after requireOrg");
     }
 
-    const userRole = req.user.role || "owner";
-
-    // Super Admin has full platform access across all routes
-    if (userRole === "superadmin") {
-      return next();
-    }
+    const userRole = req.membership.role;
 
     if (!allowedRoles.includes(userRole)) {
       throw new ApiError(
         403,
-        `Access Denied: Your active RBAC role (${userRole.toUpperCase()}) does not have permission to execute this operation.`
+        `Access Denied: Your active role (${userRole.toUpperCase()}) does not have permission.`
       );
     }
 

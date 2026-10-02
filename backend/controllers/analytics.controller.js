@@ -20,15 +20,15 @@ const getMonths = (count) => {
 };
 
 export const getOverview = asyncHandler(async (req, res) => {
-  const owner = req.user._id;
+  const orgId = req.organization._id;
   const range = req.query.range || "monthly";
   const monthCount = range === "annually" ? 12 : 6;
 
   const [leads, contactCount, openTasks] = await Promise.all([
-    Lead.find({ owner }),
-    Contact.countDocuments({ owner }),
+    Lead.find({ organization: orgId }),
+    Contact.countDocuments({ organization: orgId }),
     Task.countDocuments({
-      owner,
+      organization: orgId,
       status: { $ne: "Completed" },
     }),
   ]);

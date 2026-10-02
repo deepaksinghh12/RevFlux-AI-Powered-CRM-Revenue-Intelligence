@@ -5,12 +5,13 @@ import {
   updateMemberRole,
   removeTeamMember,
 } from "../controllers/team.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/rbac.middleware.js";
 
 const router = express.Router();
 
 router.use(protect);
+router.use(requireOrg);
 
 router.get("/", getTeamMembers);
 router.post("/invite", requireRole("owner", "ops_head", "superadmin"), inviteTeamMember);

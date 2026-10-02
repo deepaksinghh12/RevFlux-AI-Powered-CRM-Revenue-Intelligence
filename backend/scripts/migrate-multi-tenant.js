@@ -20,7 +20,7 @@ async function migrate() {
   console.log("Starting Multi-Tenant Migration...");
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB.");
 
     // Retrieve all users directly to capture deprecated fields

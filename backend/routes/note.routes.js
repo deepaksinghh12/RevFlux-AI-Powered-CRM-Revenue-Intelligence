@@ -7,11 +7,12 @@ import {
   deleteNote
 } from "../controllers/note.controller.js";
 
-import { protect } from "../middleware/auth.middleware.js";
+import { protect, requireOrg } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
 router.use(protect);
+router.use(requireOrg);
 
 router
   .route("/")
