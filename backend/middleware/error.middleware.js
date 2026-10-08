@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import logger from "../config/logger.js";
 
 // 404 handler for unmatched routes
