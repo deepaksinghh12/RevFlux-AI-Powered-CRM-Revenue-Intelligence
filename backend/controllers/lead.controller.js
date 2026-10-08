@@ -2,7 +2,7 @@ import Lead, { LEAD_STATUSES, LEAD_PRIORITIES } from "../models/Lead.js";
 import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import { Resend } from "resend";
 import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";

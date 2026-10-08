@@ -9,7 +9,7 @@ import OutreachSequence from "../models/OutreachSequence.js";
 import CaptureForm from "../models/CaptureForm.js";
 
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 
 // ===============================
 // GET ORGANIZATION SETTINGS

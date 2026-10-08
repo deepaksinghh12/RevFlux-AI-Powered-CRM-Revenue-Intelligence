@@ -1,6 +1,6 @@
 import { copilotTools, executeTool } from "./aiTools.service.js";
 import OpenAI from "openai";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 
 // ── Client ────────────────────────────────────────────────────────────────────
 

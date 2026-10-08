@@ -7,7 +7,7 @@ import {
   generateSalesInsights,
 } from "../services/ai.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 
 // ===============================
 // HELPER: RESOLVE LEAD

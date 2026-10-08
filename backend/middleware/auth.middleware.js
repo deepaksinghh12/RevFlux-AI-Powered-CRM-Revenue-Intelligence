@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import OrganizationMembership from "../models/OrganizationMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 
 // 1. Verify JWT and inject req.user
 export const protect = asyncHandler(async (req, res, next) => {

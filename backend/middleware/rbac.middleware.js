@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import { ROLE_PERMISSIONS } from "../config/permissions.js";
 
 /**

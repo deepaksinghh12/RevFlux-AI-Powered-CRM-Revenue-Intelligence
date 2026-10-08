@@ -6,7 +6,7 @@ import { Contact } from "../models/Contact.js";
 import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import { generateToken } from "../utils/generateToken.js";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";

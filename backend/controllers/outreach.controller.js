@@ -3,7 +3,7 @@ import { OutreachSequence, OutreachQueue } from "../models/OutreachSequence.js";
 import Lead from "../models/Lead.js";
 import { generateEmail } from "../services/ai.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import { logActivity } from "../services/activity.service.js";
 
 // Default templates seeded on first load

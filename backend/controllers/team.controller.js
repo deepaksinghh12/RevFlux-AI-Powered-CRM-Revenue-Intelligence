@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import OrganizationMembership from "../models/OrganizationMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import crypto from "crypto";
 import { Resend } from "resend";
 

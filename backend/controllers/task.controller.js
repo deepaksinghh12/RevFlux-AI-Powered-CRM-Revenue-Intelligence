@@ -2,7 +2,7 @@ import { Task } from "../models/Task.js";
 import "../models/Lead.js";
 import "../models/Contact.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 import { logActivity } from "../services/activity.service.js";
 
 export const getTasks = asyncHandler(async (req, res) => {
