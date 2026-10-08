@@ -34,17 +34,27 @@ startAutoScoringJob();
 app.use(helmet()); // Secure HTTP headers
 app.use(globalLimiter); // Apply rate limiting to all requests
 
+const clientUrls = (process.env.CLIENT_URL || "")
+  .split(",")
+  .map((u) => u.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  ...clientUrls,
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:3000",
-].filter(Boolean);
+];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        (origin && origin.endsWith(".vercel.app")) ||
+        process.env.NODE_ENV !== "production"
+      ) {
         return callback(null, true);
       }
       return callback(new Error("Not allowed by CORS"));

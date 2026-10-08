@@ -6,9 +6,31 @@ import OrganizationMembership from "../models/OrganizationMembership.js";
 let io;
 
 export const initSocket = (server) => {
+  const clientUrls = (process.env.CLIENT_URL || "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = [
+    ...clientUrls,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+  ];
+
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: (origin, callback) => {
+        if (
+          !origin ||
+          allowedOrigins.includes(origin) ||
+          (origin && origin.endsWith(".vercel.app")) ||
+          process.env.NODE_ENV !== "production"
+        ) {
+          return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+      },
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       credentials: true,
     },
