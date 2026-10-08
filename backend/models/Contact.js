@@ -5,6 +5,7 @@ const contactSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
+      required: true,
       index: true,
     },
     owner: {
@@ -57,6 +58,16 @@ const contactSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -68,5 +79,10 @@ contactSchema.index({
   email: "text",
   company: "text",
 });
+
+contactSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
+);
 
 export const Contact = mongoose.model("Contact", contactSchema);

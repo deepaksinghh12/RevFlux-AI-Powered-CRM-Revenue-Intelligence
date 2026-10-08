@@ -7,18 +7,11 @@ import {
   Building2,
   Calendar,
   Wand2,
-  Plus,
-  Paperclip,
-  Trash2,
-  Upload,
-  Sparkles,
-  AlertCircle,
-  Pencil,
   Clock,
-  CheckCircle2,
-  FileText,
   Send,
-  UserCheck,
+  Sparkles,
+  AlertTriangle,
+  FileText
 } from "lucide-react";
 import {
   Button,
@@ -26,20 +19,13 @@ import {
   Badge,
   Avatar,
   Spinner,
-  Tabs,
-  Field,
-  Input,
-  Textarea,
-  Dialog,
 } from "../components/ui";
-import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
-import { LeadFormDialog } from "../components/leads/LeadFormDialog";
 import { TaskScheduleDialog } from "../components/leads/TaskScheduleDialog";
 import { AiEmailDialog } from "../components/ai/AiEmailDialog";
-import { leadsApi, notesApi, aiApi } from "../lib/services";
+import { leadsApi, aiApi } from "../lib/services";
 import { currency, shortDate, relative } from "../lib/format";
-import { STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
+import { STAGE_STYLES } from "../lib/constants";
 import { cn } from "../lib/utils";
 import { toast } from "sonner";
 
@@ -50,133 +36,26 @@ export default function LeadDetail() {
   const [lead, setLead] = useState(null);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activityLoading, setActivityLoading] = useState(true);
 
-  // Dialog states
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [noteContent, setNoteContent] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
 
-  // AI states
-  const [loadingAi, setLoadingAi] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  // Filter tab for activity feed
-  const [activityTab, setActivityTab] = useState("all");
-
-  const fetchLeadData = useCallback(async () => {
+  const fetchLead = useCallback(async () => {
     try {
       const res = await leadsApi.get(id);
       setLead(res.lead);
+      setActivity(res.activity || []);
     } catch (err) {
-      toast.error(err?.message || "Failed to load lead details");
+      toast.error("Failed to load lead details");
       navigate("/leads");
     } finally {
       setLoading(false);
     }
   }, [id, navigate]);
 
-  const fetchActivity = useCallback(async () => {
-    setActivityLoading(true);
-    try {
-      const res = await leadsApi.getActivity(id);
-      setActivity(res.activity || []);
-    } catch (err) {
-      console.error("Failed to load activity", err);
-    } finally {
-      setActivityLoading(false);
-    }
-  }, [id]);
-
   useEffect(() => {
-    fetchLeadData();
-    fetchActivity();
-  }, [fetchLeadData, fetchActivity]);
-
-  const handleRunAiAnalysis = async () => {
-    setLoadingAi(true);
-    try {
-      const res = await aiApi.leadSummary(id);
-      setLead((prev) => ({
-        ...prev,
-        aiSummary: res.summary,
-        aiRiskScore: res.aiRiskScore,
-      }));
-      toast.success("AI analysis updated!");
-    } catch (err) {
-      toast.error(err?.message || "AI analysis failed");
-    } finally {
-      setLoadingAi(false);
-    }
-  };
-
-  const handleAddNote = async (e) => {
-    e.preventDefault();
-    if (!noteContent.trim()) return;
-    setSavingNote(true);
-    try {
-      await notesApi.create({
-        lead: id,
-        content: noteContent.trim(),
-      });
-      toast.success("Note added!");
-      setNoteContent("");
-      setNoteOpen(false);
-      fetchActivity();
-    } catch (err) {
-      toast.error(err?.message || "Failed to add note");
-    } finally {
-      setSavingNote(false);
-    }
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      return toast.error("File size must be less than 10MB");
-    }
-    const formData = new FormData();
-    formData.append("file", file);
-
-    setUploading(true);
-    try {
-      const res = await leadsApi.uploadAttachment(id, formData);
-      setLead(res.lead);
-      toast.success("File attached successfully!");
-    } catch (err) {
-      toast.error(err?.message || "Failed to upload file");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDeleteAttachment = async (attachmentId) => {
-    try {
-      const res = await leadsApi.deleteAttachment(id, attachmentId);
-      setLead(res.lead);
-      toast.success("Attachment deleted");
-    } catch (err) {
-      toast.error(err?.message || "Failed to delete attachment");
-    }
-  };
-
-  const handleDeleteLead = async () => {
-    setDeleting(true);
-    try {
-      await leadsApi.remove(id);
-      toast.success("Lead deleted successfully");
-      navigate("/leads");
-    } catch (err) {
-      toast.error(err?.message || "Failed to delete lead");
-      setDeleting(false);
-    }
-  };
+    fetchLead();
+  }, [fetchLead]);
 
   if (loading) {
     return (
@@ -189,364 +68,202 @@ export default function LeadDetail() {
   if (!lead) return null;
 
   const riskScore = lead.aiRiskScore ?? null;
-  const riskColor =
-    riskScore === null
-      ? "text-ink-soft bg-surface-muted"
-      : riskScore > 66
-      ? "text-rose-600 bg-rose-50 border-rose-200"
-      : riskScore > 33
-      ? "text-amber-600 bg-amber-50 border-amber-200"
-      : "text-emerald-600 bg-emerald-50 border-emerald-200";
+  const isHighRisk = riskScore > 75;
+  const isMediumRisk = riskScore > 50;
 
-  // Filtered activity items
-  const filteredActivity = activity.filter((item) => {
-    if (activityTab === "all") return true;
-    if (activityTab === "notes") return item.type === "note";
-    if (activityTab === "emails") return item.type === "email";
-    if (activityTab === "tasks") return item.type === "task";
-    return true;
-  });
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleReevaluateRisk = async () => {
+    setAiLoading(true);
+    try {
+      await aiApi.leadSummary({ leadId: lead._id, force: true });
+      toast.success("AI Risk Score re-evaluated successfully!");
+      fetchLead();
+    } catch (err) {
+      toast.error(err.message || "Failed to re-evaluate AI risk");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Back button & Page Header */}
+    <div className="mx-auto max-w-7xl space-y-6 pb-12">
+      {/* Header */}
       <div>
         <button
-          onClick={() => navigate("/leads")}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
+          onClick={() => navigate("/pipeline")}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-ink-soft hover:text-ink transition"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Leads
+          <ArrowLeft className="h-4 w-4" /> Back to Pipeline
         </button>
-        <PageHeader
-          title={lead.name}
-          subtitle={lead.company ? `${lead.company} · Added ${relative(lead.createdAt)}` : `Added ${relative(lead.createdAt)}`}
-        >
-          <Button variant="outline" onClick={() => setEmailOpen(true)}>
-            <Wand2 className="h-4 w-4 text-brand-600" /> Generate AI Email
-          </Button>
-          <Button variant="outline" onClick={() => setScheduleOpen(true)}>
-            <Calendar className="h-4 w-4" /> Schedule Follow-up
-          </Button>
-          <Button variant="secondary" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
-          <Button variant="danger" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="h-4 w-4" /> Delete
-          </Button>
-        </PageHeader>
-      </div>
-
-      {/* Overview Stat Strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-ink-soft">Deal Value</p>
-          <p className="mt-1 font-display text-2xl font-bold text-ink">{currency(lead.value)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-ink-soft">Pipeline Stage</p>
-          <div className="mt-1">
-            <Badge className={cn("text-xs font-semibold", STAGE_STYLES[lead.status])}>
-              {lead.status}
-            </Badge>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-ink-soft">Priority</p>
-          <div className="mt-1">
-            <Badge className={cn("text-xs font-semibold", PRIORITY_STYLES[lead.priority])}>
-              {lead.priority} Priority
-            </Badge>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs uppercase tracking-wide text-ink-soft">AI Risk Score</p>
-          <div className="mt-1 flex items-center gap-2">
-            <span className={cn("inline-flex items-center rounded-lg border px-2.5 py-0.5 text-sm font-bold", riskColor)}>
-              {riskScore !== null ? `${riskScore} / 100` : "Not Scored"}
-            </span>
-          </div>
-        </Card>
-      </div>
-
-      {/* Main Grid Layout: Left Details / Right Activity Timeline */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left Column (Details & AI Intelligence) */}
-        <div className="space-y-6 lg:col-span-1">
-          {/* AI Intelligence Card */}
-          <Card className="overflow-hidden border-brand-200 bg-linear-to-b from-brand-50/50 to-surface p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <h3 className="font-display text-base font-bold text-ink">AI Intelligence</h3>
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <Avatar name={lead.name} size="xl" className="h-16 w-16 text-lg border-2 border-surface shadow-sm" />
+            <div>
+              <h1 className="text-2xl font-display font-bold text-ink">{lead.name}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-ink-soft">
+                {lead.company && (
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" /> {lead.company}
+                  </span>
+                )}
+                {lead.email && (
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="h-4 w-4" /> {lead.email}
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5">
+                  <Badge className={cn("text-[10px]", STAGE_STYLES[lead.status]?.badge || "bg-sky-50 text-sky-700")}>
+                    {lead.status}
+                  </Badge>
+                </span>
+                <span className="font-mono font-semibold text-ink">{currency(lead.value)}</span>
               </div>
-              <Button size="sm" variant="subtle" onClick={handleRunAiAnalysis} loading={loadingAi}>
-                Analyze
-              </Button>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="subtle" onClick={() => setEmailOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-2" /> Draft AI Email
+            </Button>
+            <Button variant="primary" onClick={() => setScheduleOpen(true)}>
+              <Calendar className="h-4 w-4 mr-2" /> Schedule Task
+            </Button>
+          </div>
+        </div>
+      </div>
 
-            {lead.aiSummary ? (
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">Executive Briefing</p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink">{lead.aiSummary}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Col: Timeline */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="p-6">
+            <h3 className="font-semibold text-ink mb-6">Activity Timeline</h3>
+            {activity.length === 0 ? (
+              <div className="text-center py-10 border border-dashed border-line rounded-xl">
+                <Clock className="h-8 w-8 text-ink-soft mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium text-ink">No activity yet</p>
+                <p className="text-xs text-ink-soft mt-1">Schedule a task or draft an email to get started.</p>
+              </div>
+            ) : (
+              <div className="relative pl-4 border-l border-line/60 space-y-8">
+                {activity.map((item, idx) => (
+                  <TimelineItem key={idx} item={item} />
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right Col: AI Intel & Details */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* AI Intelligence Card */}
+          <Card className={cn(
+            "p-6 transition-all",
+            isHighRisk ? "bg-rose-50/50 border-rose-200" : isMediumRisk ? "bg-amber-50/50 border-amber-200" : "bg-surface"
+          )}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-lg shadow-sm",
+                  isHighRisk ? "bg-rose-500 text-white" : isMediumRisk ? "bg-amber-500 text-white" : "bg-brand-600 text-white"
+                )}>
+                  {riskScore !== null ? <AlertTriangle className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                 </div>
-
-                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-amber-700">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>Risk Factors Detected</span>
-                  </div>
-                  <ul className="space-y-1 text-xs text-ink-soft pl-6 list-disc">
-                    {riskScore > 50 ? (
-                      <>
-                        <li>No recent email outreach recorded</li>
-                        <li>Deal stagnant in current stage</li>
-                      </>
-                    ) : (
-                      <>
-                        <li>High deal momentum</li>
-                        <li>Active follow-up timeline</li>
-                      </>
-                    )}
-                  </ul>
+                <h3 className="font-bold text-ink">AI Intelligence</h3>
+              </div>
+              <button
+                onClick={handleReevaluateRisk}
+                disabled={aiLoading}
+                className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50 inline-flex items-center gap-1"
+              >
+                <Wand2 className={cn("h-3.5 w-3.5", aiLoading && "animate-spin")} />
+                {aiLoading ? "Scoring..." : "Re-score"}
+              </button>
+            </div>
+            
+            {riskScore !== null ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-soft uppercase tracking-wider">Risk Score</span>
+                  <span className={cn(
+                    "font-display text-xl font-bold",
+                    isHighRisk ? "text-rose-600" : isMediumRisk ? "text-amber-600" : "text-emerald-600"
+                  )}>
+                    {riskScore}/100
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold text-ink-soft uppercase tracking-wider mb-1">Reason</span>
+                  <p className="text-sm text-ink leading-relaxed">{lead.attentionReason || "This lead is currently on track."}</p>
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-xs text-ink-soft">
-                Click Analyze to generate an AI summary, risk score, and deal recommendations.
-              </p>
+              <p className="text-sm text-ink-soft">No AI risk score generated yet for this lead.</p>
             )}
           </Card>
 
-          {/* Contact Details Card */}
-          <Card className="p-5 space-y-4">
-            <h3 className="font-display text-base font-bold text-ink">Contact Details</h3>
-            <div className="space-y-3">
-              <DetailRow icon={Mail} label="Email" value={lead.email} href={`mailto:${lead.email}`} />
-              <DetailRow icon={Phone} label="Phone" value={lead.phone} href={`tel:${lead.phone}`} />
-              <DetailRow icon={Building2} label="Company" value={lead.company} />
-              <DetailRow icon={UserCheck} label="Lead Source" value={lead.source || "Website"} />
-            </div>
-
-            {lead.tags && lead.tags.length > 0 && (
-              <div className="pt-2">
-                <p className="text-xs font-medium uppercase text-ink-soft mb-2">Tags</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {lead.tags.map((tag) => (
-                    <Badge key={tag} className="bg-surface-muted text-ink">
-                      #{tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* File Attachments Card */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-base font-bold text-ink">Attachments</h3>
-              <span className="rounded bg-surface-muted px-2 py-0.5 text-xs font-semibold text-ink-soft">
-                {lead.attachments?.length || 0}
-              </span>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {lead.attachments?.map((file) => (
-                <div key={file._id} className="group flex items-center justify-between rounded-xl border border-line bg-surface p-2.5 transition hover:bg-surface-muted">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                      <Paperclip className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <a href={file.url} target="_blank" rel="noreferrer" className="block truncate text-xs font-medium text-brand-700 hover:underline">
-                        {file.name}
-                      </a>
-                      <p className="text-[10px] text-ink-soft">{(file.size / 1024).toFixed(0)} KB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteAttachment(file._id)}
-                    className="hidden rounded p-1.5 text-ink-soft hover:bg-rose-50 hover:text-rose-600 group-hover:block"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface px-4 py-2.5 text-xs font-medium text-brand-700 transition hover:bg-brand-50">
-                {uploading ? <Spinner size="sm" /> : <Upload className="h-3.5 w-3.5" />}
-                {uploading ? "Uploading..." : "Attach Document"}
-                <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
-              </label>
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column (Chronological Activity Feed) */}
-        <div className="space-y-4 lg:col-span-2">
-          <Card className="p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Details Card */}
+          <Card className="p-6">
+            <h3 className="font-semibold text-ink mb-4">Deal Information</h3>
+            <div className="space-y-4">
               <div>
-                <h3 className="font-display text-lg font-bold text-ink">Activity Timeline</h3>
-                <p className="text-xs text-ink-soft">Unified audit trail of notes, tasks, and communications</p>
+                <p className="text-xs text-ink-soft mb-1">Owner</p>
+                <div className="flex items-center gap-2">
+                  <Avatar name={lead.owner?.name || "Unassigned"} size="xs" />
+                  <span className="text-sm font-medium text-ink">{lead.owner?.name || "Unassigned"}</span>
+                </div>
               </div>
-              <Button size="sm" onClick={() => setNoteOpen(true)}>
-                <Plus className="h-4 w-4" /> Add Note
-              </Button>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="mt-4 border-b border-line pb-2">
-              <Tabs
-                value={activityTab}
-                onChange={setActivityTab}
-                tabs={[
-                  { value: "all", label: "All Activity" },
-                  { value: "notes", label: "Notes" },
-                  { value: "emails", label: "Emails" },
-                  { value: "tasks", label: "Tasks" },
-                ]}
-              />
-            </div>
-
-            {/* Activity Stream */}
-            <div className="mt-6">
-              {activityLoading ? (
-                <div className="flex justify-center py-12">
-                  <Spinner />
-                </div>
-              ) : filteredActivity.length === 0 ? (
-                <div className="py-12 text-center text-sm text-ink-soft">
-                  No activity recorded yet for this lead.
-                </div>
-              ) : (
-                <div className="relative space-y-6 pl-6 before:absolute before:bottom-0 before:left-2.5 before:top-2 before:w-0.5 before:bg-line">
-                  {filteredActivity.map((item) => (
-                    <TimelineItem key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
+              <div>
+                <p className="text-xs text-ink-soft mb-1">Priority</p>
+                <Badge className="bg-surface border-line text-ink">{lead.priority}</Badge>
+              </div>
+              <div>
+                <p className="text-xs text-ink-soft mb-1">Created</p>
+                <p className="text-sm font-medium text-ink">{shortDate(lead.createdAt)}</p>
+              </div>
             </div>
           </Card>
         </div>
       </div>
-
-      {/* Dialog Modals */}
-      <LeadFormDialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        lead={lead}
-        onSaved={fetchLeadData}
-      />
 
       <AiEmailDialog
         open={emailOpen}
         onClose={() => setEmailOpen(false)}
         lead={lead}
-        onSent={fetchActivity}
+        onSent={fetchLead}
       />
-
       <TaskScheduleDialog
         open={scheduleOpen}
         onClose={() => setScheduleOpen(false)}
         lead={lead}
-        onSaved={fetchActivity}
+        onSaved={fetchLead}
       />
-
-      <ConfirmDialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleDeleteLead}
-        loading={deleting}
-        title="Delete Lead?"
-        description={`Are you sure you want to delete ${lead.name}? All associated tasks and notes will be removed.`}
-        confirmLabel="Delete Lead"
-      />
-
-      {/* Add Note Modal */}
-      <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} title="Add Note to Timeline">
-        <form onSubmit={handleAddNote} className="mt-4 space-y-4">
-          <Field label="Note Content">
-            <Textarea
-              rows={4}
-              placeholder="Record call outcome, budget notes, or key decisions..."
-              value={noteContent}
-              onChange={(e) => setNoteContent(e.target.value)}
-              required
-            />
-          </Field>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setNoteOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={savingNote}>
-              {savingNote && <Spinner size="sm" />}
-              Save Note
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-    </div>
-  );
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function DetailRow({ icon: Icon, label, value, href }) {
-  if (!value) return null;
-  const body = (
-    <div className="flex items-center gap-3 text-sm text-ink">
-      <Icon className="h-4 w-4 shrink-0 text-ink-soft" />
-      <span className="truncate">{value}</span>
-    </div>
-  );
-  return (
-    <div className="flex items-center justify-between">
-      {href ? (
-        <a href={href} className="hover:text-brand-700 hover:underline">
-          {body}
-        </a>
-      ) : (
-        body
-      )}
     </div>
   );
 }
 
 function TimelineItem({ item }) {
-  let icon = <Clock className="h-3.5 w-3.5 text-ink-soft" />;
-  let iconBg = "bg-surface-muted text-ink-soft";
+  let icon = <Clock className="h-4 w-4 text-ink-soft" />;
+  let iconBg = "bg-surface border-line text-ink-soft";
 
   if (item.type === "email") {
-    icon = <Send className="h-3.5 w-3.5 text-sky-600" />;
-    iconBg = "bg-sky-50 text-sky-600";
+    icon = <Send className="h-4 w-4 text-brand-600" />;
+    iconBg = "bg-brand-50 border-brand-200 text-brand-600";
   } else if (item.type === "note") {
-    icon = <FileText className="h-3.5 w-3.5 text-brand-600" />;
-    iconBg = "bg-brand-50 text-brand-600";
-  } else if (item.type === "task") {
-    icon = <CheckCircle2 className="h-3.5 w-3.5 text-violet-600" />;
-    iconBg = "bg-violet-50 text-violet-600";
+    icon = <FileText className="h-4 w-4 text-sky-600" />;
+    iconBg = "bg-sky-50 border-sky-200 text-sky-600";
   }
 
   return (
     <div className="relative">
-      {/* Icon node */}
-      <div className={cn("absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-surface shadow-xs", iconBg)}>
+      <div className={cn("absolute -left-8 top-0 flex h-8 w-8 items-center justify-center rounded-full border shadow-xs", iconBg)}>
         {icon}
       </div>
-
-      {/* Content */}
-      <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-ink">{item.title}</p>
-          <span className="text-[10px] text-ink-soft">{relative(item.timestamp)}</span>
+      <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all hover:shadow-[var(--shadow-card)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+          <p className="text-sm font-bold text-ink">{item.title}</p>
+          <span className="text-xs font-semibold text-ink-soft">{relative(item.timestamp)}</span>
         </div>
-        <p className="mt-1 whitespace-pre-wrap text-xs text-ink-soft leading-relaxed">
+        <p className="whitespace-pre-wrap text-sm text-ink-soft leading-relaxed">
           {item.description}
         </p>
       </div>

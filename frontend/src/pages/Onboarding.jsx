@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, activeOrg } = useAuth();
 
   const [step, setStep] = useState(1); // 1: Profile, 2: Data Choice, 3: Success
   const [loading, setLoading] = useState(false);

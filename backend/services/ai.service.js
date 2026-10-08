@@ -1,3 +1,4 @@
+import { copilotTools, executeTool } from "./aiTools.service.js";
 import OpenAI from "openai";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -173,7 +174,7 @@ export { generateJSON, generateText };
  * Copilot Chat Response
  * Takes an array of messages and optionally a system prompt to maintain context.
  */
-export const generateChatResponse = async (messages, systemContext) => {
+export const generateChatResponse = async (messages, systemContext, contextParams = {}) => {
   const ai = getClient();
   
   const payloadMessages = [];
@@ -181,15 +182,49 @@ export const generateChatResponse = async (messages, systemContext) => {
     payloadMessages.push({ role: "system", content: systemContext });
   }
   
-  // ensure the messages only contain role and content
+  // ensure we map standard roles
   messages.forEach(m => {
     payloadMessages.push({ role: m.role, content: m.content });
   });
 
-  const completion = await ai.chat.completions.create({
-    model: MODEL(),
-    messages: payloadMessages,
-  });
+  const MAX_TURNS = 5;
+  let turn = 0;
 
-  return completion.choices[0].message.content;
+  while (turn < MAX_TURNS) {
+    turn++;
+    const completion = await ai.chat.completions.create({
+      model: MODEL(),
+      messages: payloadMessages,
+      tools: copilotTools,
+      tool_choice: "auto",
+    });
+
+    const responseMessage = completion.choices[0].message;
+    payloadMessages.push(responseMessage);
+
+    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+      for (const toolCall of responseMessage.tool_calls) {
+        const args = JSON.parse(toolCall.function.arguments);
+        console.log(`[Copilot Tool Call] ${toolCall.function.name}`, args);
+        
+        let toolResult = "";
+        try {
+          toolResult = await executeTool(toolCall.function.name, args, contextParams);
+        } catch (e) {
+          toolResult = `Error executing tool: ${e.message}`;
+        }
+
+        payloadMessages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          name: toolCall.function.name,
+          content: String(toolResult)
+        });
+      }
+    } else {
+      return responseMessage.content;
+    }
+  }
+
+  return payloadMessages[payloadMessages.length - 1].content || "Max reasoning steps reached.";
 };

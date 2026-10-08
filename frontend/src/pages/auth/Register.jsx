@@ -47,92 +47,96 @@ export default function Register() {
 
   return (
     <AuthShell>
-      <h1 className="text-2xl font-bold text-ink">Create your account</h1>
-      <p className="mt-1.5 text-sm text-ink-soft">
-        Start managing your pipeline in minutes.
-      </p>
-
-      <div className="mt-8">
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => toast.error("Google signup failed")}
-          theme="outline"
-          size="large"
-          text="signup_with"
-          width="100%"
-        />
+      <div className="animate-fade-up" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
+        <h1 className="text-2xl font-bold text-ink tracking-tight">Create your account</h1>
+        <p className="mt-1.5 text-sm text-ink-soft">
+          Start managing your pipeline in minutes.
+        </p>
       </div>
 
-      <div className="relative mt-8">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-line" />
+      <div className="animate-fade-up" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
+        <div className="mt-8">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => toast.error("Google signup failed")}
+            theme="outline"
+            size="large"
+            text="signup_with"
+            width="100%"
+          />
         </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="bg-canvas px-2 text-ink-soft">Or continue with email</span>
+
+        <div className="relative mt-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-line" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-white px-2 text-ink-soft">Or continue with email</span>
+          </div>
         </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
+          <Field label="Full name" error={errors.name?.message}>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+              <Input
+                placeholder="Sujon Ahmed"
+                className="pl-9"
+                {...register("name", { required: "Name is required" })}
+              />
+            </div>
+          </Field>
+
+          <Field label="Company" error={errors.company?.message}>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+              <Input
+                placeholder="Time To Program"
+                className="pl-9"
+                {...register("company")}
+              />
+            </div>
+          </Field>
+
+          <Field label="Email" error={errors.email?.message}>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+              <Input
+                type="email"
+                placeholder="you@company.com"
+                className="pl-9"
+                {...register("email", { required: "Email is required" })}
+              />
+            </div>
+          </Field>
+
+          <Field label="Password" error={errors.password?.message}>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+              <Input
+                type="password"
+                placeholder="At least 6 characters"
+                className="pl-9"
+                {...register("password", {
+                  required: "Password is required",
+                  minLength: { value: 6, message: "Minimum 6 characters" },
+                })}
+              />
+            </div>
+          </Field>
+
+          <Button type="submit" className="w-full" size="lg" loading={submitting}>
+            Create account
+          </Button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-ink-soft">
+          Already have an account?{" "}
+          <Link to="/login" className="font-semibold text-brand-700 hover:underline">
+            Sign in
+          </Link>
+        </p>
       </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
-        <Field label="Full name" error={errors.name?.message}>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-            <Input
-              placeholder="Sujon Ahmed"
-              className="pl-9"
-              {...register("name", { required: "Name is required" })}
-            />
-          </div>
-        </Field>
-
-        <Field label="Company" error={errors.company?.message}>
-          <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-            <Input
-              placeholder="Time To Program"
-              className="pl-9"
-              {...register("company")}
-            />
-          </div>
-        </Field>
-
-        <Field label="Email" error={errors.email?.message}>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-            <Input
-              type="email"
-              placeholder="you@company.com"
-              className="pl-9"
-              {...register("email", { required: "Email is required" })}
-            />
-          </div>
-        </Field>
-
-        <Field label="Password" error={errors.password?.message}>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-            <Input
-              type="password"
-              placeholder="At least 6 characters"
-              className="pl-9"
-              {...register("password", {
-                required: "Password is required",
-                minLength: { value: 6, message: "Minimum 6 characters" },
-              })}
-            />
-          </div>
-        </Field>
-
-        <Button type="submit" className="w-full" size="lg" loading={submitting}>
-          Create account
-        </Button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-ink-soft">
-        Already have an account?{" "}
-        <Link to="/login" className="font-semibold text-brand-700 hover:underline">
-          Sign in
-        </Link>
-      </p>
     </AuthShell>
   );
 }

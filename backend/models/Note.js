@@ -5,6 +5,7 @@ const noteSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
+      required: true,
       index: true,
     },
     owner: {
@@ -35,10 +36,25 @@ const noteSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
+);
+
+noteSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
 );
 
 export const Note = mongoose.model("Note", noteSchema);

@@ -3,11 +3,15 @@ import "../models/Lead.js";
 import "../models/Contact.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import { logActivity } from "../services/activity.service.js";
 
 export const getNotes = asyncHandler(async (req, res) => {
   const { lead, contact, search } = req.query;
 
-  const filter = { organization: req.organization._id };
+  const filter = { organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    filter.owner = req.user._id;
+  }
 
   if (lead) filter.lead = lead;
   if (contact) filter.contact = contact;
@@ -37,6 +41,7 @@ export const createNote = asyncHandler(async (req, res) => {
 
   const note = await Note.create({
     organization: req.organization._id,
+    owner: req.user._id, // Assign to current user
     content,
     lead: lead || null,
     contact: contact || null,
@@ -47,18 +52,29 @@ export const createNote = asyncHandler(async (req, res) => {
     success: true,
     note
   });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "NOTE_CREATED",
+    entityType: "Note",
+    entityId: note._id,
+    details: {}
+  });
 });
 
 export const updateNote = asyncHandler(async (req, res) => {
   const { content, lead, contact, pinned } = req.body;
 
-  const note = await Note.findOne({
-    _id: req.params.id,
-    organization: req.organization._id
-  });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const note = await Note.findOne(query);
 
   if (!note) {
-    throw new ApiError(404, "Note not found");
+    throw new ApiError(404, "Note not found or access denied");
   }
 
   if (content !== undefined) note.content = content;
@@ -75,17 +91,32 @@ export const updateNote = asyncHandler(async (req, res) => {
 });
 
 export const deleteNote = asyncHandler(async (req, res) => {
-  const note = await Note.findOneAndDelete({
-    _id: req.params.id,
-    organization: req.organization._id
-  });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const note = await Note.findOne(query);
 
   if (!note) {
-    throw new ApiError(404, "Note not found");
+    throw new ApiError(404, "Note not found or access denied");
   }
+
+  note.isDeleted = true;
+  note.deletedAt = new Date();
+  await note.save();
 
   res.json({
     success: true,
     message: "Note deleted successfully"
+  });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "NOTE_DELETED",
+    entityType: "Note",
+    entityId: note._id,
+    details: {}
   });
 });

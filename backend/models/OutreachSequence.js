@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const outreachSequenceSchema = new mongoose.Schema(
   {
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -55,6 +61,12 @@ export const OutreachSequence = mongoose.model("OutreachSequence", outreachSeque
 
 const outreachQueueSchema = new mongoose.Schema(
   {
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      // required: true will be enforced post-migration
+      index: true,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -131,7 +131,7 @@ export function AiAttentionCenter() {
                 <span>Great job! No high-risk or stagnant leads in your pipeline right now.</span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-3">
                 {leads.map((lead) => (
                   <AttentionLeadCard
                     key={lead._id}
@@ -169,68 +169,45 @@ export function AiAttentionCenter() {
 }
 
 function AttentionLeadCard({ lead, onEmail, onSchedule, onView }) {
-  const riskBadgeColor =
-    lead.riskScore > 75
-      ? "bg-rose-100 text-rose-700 border-rose-300"
-      : lead.riskScore > 50
-      ? "bg-amber-100 text-amber-800 border-amber-300"
-      : "bg-sky-100 text-sky-700 border-sky-300";
+  const isHighRisk = lead.riskScore > 75;
+  const isMediumRisk = lead.riskScore > 50;
+  
+  const riskColor = isHighRisk 
+    ? "bg-rose-50 text-rose-700 border-rose-200" 
+    : isMediumRisk 
+    ? "bg-amber-50 text-amber-700 border-amber-200" 
+    : "bg-surface-muted text-ink-soft border-line";
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-4 transition-all hover:shadow-md">
-      <div>
-        {/* Top Header: Lead Name + Risk Score */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h4
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-line bg-canvas p-3 transition-all hover:border-brand-200 hover:shadow-[var(--shadow-soft)] group">
+      <div className="flex items-start sm:items-center gap-3 min-w-0">
+        <div className={cn("hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border font-bold text-xs", riskColor)}>
+          {lead.riskScore}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 
               onClick={onView}
-              className="cursor-pointer font-display text-base font-bold text-ink hover:text-brand-600 hover:underline"
+              className="truncate cursor-pointer font-bold text-sm text-ink hover:text-brand-600 transition"
             >
-              {lead.name}
+              {lead.name} <span className="font-normal text-ink-soft ml-1">at {lead.company || lead.email}</span>
             </h4>
-            <p className="text-xs text-ink-soft">{lead.company || lead.email}</p>
+            <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-line" />
+            <span className="hidden sm:inline-block text-xs font-semibold text-ink">{currency(lead.value)}</span>
           </div>
-          <span className={cn("inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-bold shadow-2xs", riskBadgeColor)}>
-            Risk {lead.riskScore}/100
-          </span>
-        </div>
-
-        {/* Stage & Value Pill */}
-        <div className="mt-3 flex items-center gap-2">
-          <Badge className={cn("text-[10px]", STAGE_STYLES[lead.status]?.badge || "bg-sky-50 text-sky-700")}>
-            {lead.status}
-          </Badge>
-          <span className="font-mono text-xs font-semibold text-ink">{currency(lead.value)}</span>
-        </div>
-
-        {/* Risk Reasons */}
-        <div className="mt-3 space-y-1 rounded-xl bg-surface-muted/60 p-2.5">
-          <p className="text-[11px] font-semibold text-rose-700">Why Attention Needed:</p>
-          {lead.reasons.map((reason, idx) => (
-            <div key={idx} className="flex items-start gap-1.5 text-xs text-ink-soft">
-              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
-              <span>{reason}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Recommended Action */}
-        <div className="mt-3 text-xs text-ink">
-          <span className="font-semibold text-brand-700">Recommended Action: </span>
-          <span className="text-ink-soft">{lead.recommendedAction}</span>
+          <div className="mt-1 flex items-center gap-2 text-xs text-ink-soft">
+            <AlertTriangle className={cn("h-3.5 w-3.5", isHighRisk ? "text-rose-500" : isMediumRisk ? "text-amber-500" : "text-ink-soft")} />
+            <span className="truncate">{lead.attentionReason || "Stalled in pipeline, needs follow up"}</span>
+          </div>
         </div>
       </div>
-
-      {/* Action Buttons */}
-      <div className="mt-4 flex items-center justify-between gap-1.5 border-t border-line/60 pt-3">
-        <Button size="xs" variant="outline" onClick={onEmail}>
-          <Mail className="h-3 w-3 text-sky-600" /> Email
+      
+      <div className="flex items-center gap-2 shrink-0">
+        <Button variant="outline" size="sm" onClick={onSchedule} className="h-8 text-xs font-semibold px-3 hidden group-hover:flex">
+          <Calendar className="h-3.5 w-3.5 mr-1.5 text-ink-soft" /> Schedule
         </Button>
-        <Button size="xs" variant="outline" onClick={onSchedule}>
-          <Calendar className="h-3 w-3 text-violet-600" /> Task
-        </Button>
-        <Button size="xs" variant="subtle" onClick={onView}>
-          <Eye className="h-3 w-3" /> View
+        <Button variant="subtle" size="sm" onClick={onEmail} className="h-8 text-xs font-semibold px-3">
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Draft Email
         </Button>
       </div>
     </div>

@@ -46,7 +46,7 @@ export function Sidebar({ onNavigate }) {
     <aside className="flex h-full w-64 flex-col border-r border-line bg-surface">
       {/* Brand */}
       <Link to="/" className="flex items-center gap-2.5 px-6 py-6 transition hover:opacity-85">
-        <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
+        <div className="bg-brand-600 shadow-sm flex h-9 w-9 items-center justify-center rounded-xl text-white">
           <Sparkles className="h-5 w-5" />
         </div>
         <span className="font-display text-lg font-bold text-ink">RevFlux</span>
@@ -81,7 +81,7 @@ export function Sidebar({ onNavigate }) {
           onClick={() => setProfileModalOpen(true)}
           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-surface-muted"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold uppercase text-white shadow-xs">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 text-sm font-bold uppercase shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
             {activeOrg?.name?.charAt(0) || "W"}
           </div>
           <div className="min-w-0 flex-1">

@@ -4,6 +4,7 @@ import Lead from "../models/Lead.js";
 import { generateEmail } from "../services/ai.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import { logActivity } from "../services/activity.service.js";
 
 // Default templates seeded on first load
 const DEFAULT_TEMPLATES = [
@@ -186,7 +187,12 @@ export const toggleSequence = asyncHandler(async (req, res) => {
 // GET OUTREACH DRAFT QUEUE
 // ===============================
 export const getQueue = asyncHandler(async (req, res) => {
-  const queue = await OutreachQueue.find({ organization: req.organization._id })
+  const query = { organization: req.organization._id };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const queue = await OutreachQueue.find(query)
     .populate("lead", "name company email status aiRiskScore value")
     .populate("sequence", "name triggerType")
     .sort({ createdAt: -1 });
@@ -198,22 +204,41 @@ export const getQueue = asyncHandler(async (req, res) => {
 // SEND QUEUE ITEM
 // ===============================
 export const sendQueueItem = asyncHandler(async (req, res) => {
-  const queueItem = await OutreachQueue.findOne({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
-  if (!queueItem) throw new ApiError(404, "Draft not found in queue");
+  const query = { _id: req.params.id, organization: req.organization._id };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const queueItem = await OutreachQueue.findOne(query);
+  if (!queueItem) throw new ApiError(404, "Draft not found in queue or access denied");
 
   queueItem.status = "sent";
   queueItem.sentAt = new Date();
   await queueItem.save();
 
   res.json({ success: true, message: "Email draft marked as sent!", queueItem });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "EMAIL_SENT",
+    entityType: "Lead",
+    entityId: queueItem.lead,
+    details: { subject: queueItem.subject }
+  });
 });
 
 // ===============================
 // DISMISS QUEUE ITEM
 // ===============================
 export const dismissQueueItem = asyncHandler(async (req, res) => {
-  const queueItem = await OutreachQueue.findOneAndDelete({ _id: req.params.id, owner: req.user._id, organization: req.organization._id });
-  if (!queueItem) throw new ApiError(404, "Draft not found in queue");
+  const query = { _id: req.params.id, organization: req.organization._id };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const queueItem = await OutreachQueue.findOneAndDelete(query);
+  if (!queueItem) throw new ApiError(404, "Draft not found in queue or access denied");
   res.json({ success: true, message: "Draft dismissed from queue" });
 });
 

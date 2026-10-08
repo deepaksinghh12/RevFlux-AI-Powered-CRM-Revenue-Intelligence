@@ -1,4 +1,5 @@
 import { ApiError } from "../utils/ApiError.js";
+import logger from "../config/logger.js";
 
 // 404 handler for unmatched routes
 export const notFound = (req, res, next) => {
@@ -31,8 +32,11 @@ export const errorHandler = (err, req, res, next) => {
       .join(", ");
   }
 
-  if (process.env.NODE_ENV !== "production" && statusCode === 500) {
-    console.error("ERROR:", err);
+  // Log server/unexpected errors via Winston
+  if (statusCode >= 500) {
+    logger.error(`${req.method} ${req.originalUrl} - ${err.message}`, { stack: err.stack });
+  } else {
+    logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} - ${message}`);
   }
 
   res.status(statusCode).json({

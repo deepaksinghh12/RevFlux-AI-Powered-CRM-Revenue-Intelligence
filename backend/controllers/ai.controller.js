@@ -185,6 +185,7 @@ export const getAttentionLeads = asyncHandler(async (req, res) => {
   // 1. Fetch all open leads (excluding Won and Lost)
   const openLeads = await Lead.find({
     owner: userId,
+    organization: req.organization._id,
     status: { $nin: ["Won", "Lost"] },
   });
 
@@ -195,6 +196,7 @@ export const getAttentionLeads = asyncHandler(async (req, res) => {
   // 2. Fetch pending tasks for the user to check upcoming follow-ups
   const pendingTasks = await Task.find({
     owner: userId,
+    organization: req.organization._id,
     status: { $ne: "Completed" },
   });
 
@@ -305,11 +307,11 @@ CURRENT CRM CONTEXT:
 Top Active Deals:
 ${contextStr || "No active deals found."}
 
-When asked about deals, reference this context. You have read-only access to this summary, so if the user asks you to modify data, tell them you cannot directly edit records yet but can guide them.
+When asked about deals, reference this context. You have access to tools to search leads, add notes, draft emails, and change lead status. Always try to fulfill the user's request by calling the necessary tools. If you use a tool to edit a record, confirm the action back to the user.
   `.trim();
 
   const { generateChatResponse } = await import("../services/ai.service.js");
-  const responseText = await generateChatResponse(messages, systemContext);
+  const responseText = await generateChatResponse(messages, systemContext, { organizationId: req.organization._id, userId: req.user._id });
 
   res.json({
     success: true,

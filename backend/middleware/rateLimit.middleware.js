@@ -1,5 +1,3 @@
-const ipStore = new Map();
-
 /**
  * Sliding-window in-memory IP rate limiter.
  * @param {Object} options - { windowMs, maxRequests, message }
@@ -9,6 +7,7 @@ export const createRateLimiter = ({
   maxRequests = 30,
   message = "Too many requests, please try again later.",
 }) => {
+  const ipStore = new Map();
   return (req, res, next) => {
     const ip =
       req.ip ||
@@ -47,4 +46,16 @@ export const aiRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   maxRequests: 50,
   message: "AI rate limit reached. Please wait a few minutes before making more requests.",
+});
+
+export const otpRequestLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 5,
+  message: "Too many OTP requests. Please try again in 15 minutes.",
+});
+
+export const otpVerifyLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 15,
+  message: "Too many OTP verification attempts. Please try again later.",
 });

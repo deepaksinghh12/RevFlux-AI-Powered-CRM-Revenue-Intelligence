@@ -1,856 +1,197 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CreditCard,
-  CalendarRange,
-  Plus,
-  ArrowUpRight,
   CheckCircle2,
-  Target,
-  Layers,
-  PieChart as PieIcon,
-  CalendarClock,
   Trophy,
-  Clock,
-  AlertTriangle,
-  Building2,
-  Newspaper,
+  CalendarClock,
+  Sparkles,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  AreaChart,
-  Area,
-  Cell,
-  PieChart,
-  Pie,
-  ComposedChart,
-  Line,
-} from "recharts";
-import { format, isPast } from "date-fns";
-import { HeroCard } from "../components/dashboard/HeroCard";
-import { AiInsightsCard } from "../components/ai/AiInsightsCard";
 import { AiAttentionCenter } from "../components/dashboard/AiAttentionCenter";
+import { PipelineTrendChart } from "../components/analytics/PipelineTrendChart";
+import { ConversionFunnelChart } from "../components/analytics/ConversionFunnelChart";
 import {
   Card,
-  SectionHeading,
   Badge,
-  Tabs,
   Skeleton,
   Avatar,
+  Button
 } from "../components/ui";
-import { analyticsApi, contactsApi, leadsApi, tasksApi, notesApi } from "../lib/services";
-import { currency, shortDate, timeOf } from "../lib/format";
-import { STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
+import { analyticsApi, tasksApi } from "../lib/services";
+import { currency, shortDate } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../lib/utils";
 
-/* Donut palette — sky-blue family used for the "Leads by Source" chart. */
-const SOURCE_COLORS = ["#0ea5e9", "#38bdf8", "#0369a1", "#7dd3fc", "#0284c7", "#bae6fd"];
-
-function GreetingHeader({ user, activeOrg }) {
-  const [time, setTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const hour = time.getHours();
-  let greeting = "Good evening";
-  if (hour < 5) greeting = "Good midnight";
-  else if (hour < 12) greeting = "Good morning";
-  else if (hour < 17) greeting = "Good afternoon";
-
-  const timeString = time.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-
-  return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase font-bold text-[10px]">
-            {activeOrg?.name || "Workspace"}
-          </Badge>
-          {user?.isSuperAdmin && (
-            <Badge className="bg-indigo-900 text-white border-indigo-700 uppercase font-bold text-[10px]">
-              RevFlux Superadmin
-            </Badge>
-          )}
-        </div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-ink flex items-center gap-2">
-          {greeting}, <span className="capitalize">{user?.name?.split(" ")[0]}</span>!
-        </h1>
-        <p className="text-sm text-ink-soft mt-1 flex items-center gap-2">
-          <Clock className="h-4 w-4" /> {timeString} - Here is your focus for today.
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <Link
-          to="/leads"
-          className="brand-gradient brand-gradient-hover inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-sm transition"
-        >
-          <Plus className="h-4 w-4" /> Add New Lead
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { user, activeOrg } = useAuth();
-  const [data, setData] = useState(null);
-  const [contacts, setContacts] = useState([]);
-  const [leads, setLeads] = useState([]);
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({});
   const [tasks, setTasks] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [range, setRange] = useState("monthly");
-
-  const loadData = () => {
-    contactsApi.list().then((res) => setContacts(res.contacts || [])).catch(() => {});
-    leadsApi.list().then((res) => setLeads(res.leads || [])).catch(() => {});
-    tasksApi.list().then((res) => setTasks(res.tasks || [])).catch(() => {});
-    notesApi.list().then((res) => setNotes(res.notes || [])).catch(() => {});
-  };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    async function load() {
+      try {
+        const [overviewRes, tasksRes] = await Promise.all([
+          analyticsApi.overview(),
+          tasksApi.list()
+        ]);
+        setStats(overviewRes);
+        setTasks(tasksRes.tasks || []);
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
-  useEffect(() => {
-    analyticsApi.overview({ range }).then(setData).catch(() => setData(false));
-  }, [range]);
-
-  if (data === null) return <DashboardSkeleton />;
-  const stats = data?.stats || {};
-
-  return (
-    <div className="space-y-6">
-      <GreetingHeader user={user} activeOrg={activeOrg} />
-      <MetricsRibbon stats={stats} tasks={tasks} leads={leads} />
-      <div className="tour-ai-attention"><AiAttentionCenter /></div>
-
-            {/* ── Action Center Grid (2-Column Layout) ───────────── */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-        {/* ── Left Column: Operations & Workflow (8 Cols) ── */}
-        <div className="space-y-5 lg:col-span-8">
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <UpcomingTasks tasks={tasks} onTaskComplete={loadData} />
-            <RecentActivityStream notes={notes} leads={leads} />
-          </div>
-
-          <Card className="tour-pipeline-engagement p-6">
-            <SectionHeading
-              icon={CreditCard}
-              title="Pipeline Velocity & Engagement"
-              subtitle="New leads vs Won revenue"
-              action={
-                <Tabs
-                  value={range}
-                  onChange={setRange}
-                  tabs={[
-                    { value: "monthly", label: "Monthly" },
-                    { value: "annually", label: "Annually" },
-                  ]}
-                />
-              }
-            />
-            <div className="mt-4">
-              <EngagementChart trend={data?.trend || []} />
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <SectionHeading
-              title="Lead Activity"
-              subtitle="Recent lead movements"
-              to="/leads"
-            />
-            <div className="mt-4">
-              <ActivityTable leads={data?.recentLeads || []} />
-            </div>
-          </Card>
-
-          <PipelineByStage pipeline={data?.pipeline || []} />
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-80" />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
         </div>
-
-        {/* ── Right Column: AI Insights & Goals (4 Cols) ── */}
-        <div className="space-y-5 lg:col-span-4">
-          <AiInsightsCard />
-          
-          {/* Quota Attainment Card */}
-          <Card className="p-6 border-brand-200 bg-brand-50/30">
-            <SectionHeading title="Quota Attainment" subtitle="Q3 Revenue Target" to="/pipeline" />
-            <div className="mt-5">
-              <div className="flex justify-between items-end mb-2">
-                <p className="font-display text-2xl font-bold tracking-tight text-ink">
-                  {currency(stats.revenueWon, { compact: true })}
-                </p>
-                <p className="text-sm font-semibold text-ink-soft">
-                  Target: {currency(12000000, { compact: true })}
-                </p>
-              </div>
-              
-              <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-brand-500 rounded-full transition-all duration-1000" 
-                  style={{ width: `${Math.min(100, Math.round(((stats.revenueWon || 0) / 12000000) * 100))}%` }} 
-                />
-              </div>
-              
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-                    <ArrowUpRight className="h-3 w-3" /> +14.2% MoM
-                  </span>
-                  <span className="text-[11px] text-ink-soft">vs last month</span>
-                </div>
-                <span className="text-xs font-bold text-brand-700">
-                  {Math.round(((stats.revenueWon || 0) / 12000000) * 100)}% to Goal
-                </span>
-              </div>
-            </div>
-          </Card>
-
-          <TopContactsCard contacts={contacts} />
-          <SalesIntelWidget />
-          
-          {/* Win/Loss by Source */}
-          <Card className="p-5">
-            <SectionHeading title="Acquisition Sources" subtitle="Win/loss breakdown" />
-            <div className="mt-4 space-y-3">
-              {(data?.winLossBySource || []).map((src) => (
-                <div key={src.source} className="flex items-center justify-between text-sm">
-                  <span className="text-ink-soft">{src.source || "Other"}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-ink">{src.winRate}%</span>
-                    <span className="text-[10px] text-ink-soft w-12 text-right">({src.won}/{src.total})</span>
-                  </div>
-                </div>
-              ))}
-              {(!data?.winLossBySource || data.winLossBySource.length === 0) && (
-                <p className="text-xs text-ink-soft text-center py-2">No source data available.</p>
-              )}
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <div className="space-y-5 lg:col-span-8">
+            <Skeleton className="h-80 rounded-2xl" />
+            <Skeleton className="h-64 rounded-2xl" />
+          </div>
+          <div className="space-y-5 lg:col-span-4">
+            <Skeleton className="h-[340px] rounded-2xl" />
+            <Skeleton className="h-[340px] rounded-2xl" />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
+  const pipelineValue = stats.pipelineValue || 0;
+  const wonValue = stats.byStage?.Won?.value || 0;
+  const activeLeads = stats.totalLeads - (stats.byStage?.Won?.count || 0) - (stats.byStage?.Lost?.count || 0) || 0;
+  const winRate = stats.conversionRate || 0;
 
-/* -- Pipeline by stage (funnel-style breakdown) ----------------------- */
-function PipelineByStage({ pipeline, className }) {
-  const maxValue = Math.max(...pipeline.map((s) => s.value), 1);
-  const totalValue = pipeline.reduce((sum, s) => sum + s.value, 0);
-
-  return (
-    <Card className={cn("p-6", className)}>
-      <SectionHeading
-        icon={Layers}
-        title="Pipeline by Stage"
-        subtitle="Deal value across each stage"
-        to="/pipeline"
-      />
-      <div className="mt-5 space-y-4">
-        {pipeline.map((s) => {
-          const style = STAGE_STYLES[s.stage] || STAGE_STYLES.New;
-          const pct = totalValue ? Math.round((s.value / totalValue) * 100) : 0;
-          return (
-            <div key={s.stage}>
-              <div className="mb-1.5 flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 font-medium text-ink">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", style.dot)} />
-                  {s.stage}
-                  <span className="text-ink-soft">· {s.count}</span>
-                </span>
-                <span className="font-semibold text-ink">
-                  {currency(s.value, { compact: true })}
-                  <span className="ml-1.5 text-xs font-normal text-ink-soft">{pct}%</span>
-                </span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-surface-muted">
-                <div
-                  className={cn("h-full rounded-full transition-all", style.bar)}
-                  style={{ width: `${Math.max((s.value / maxValue) * 100, 2)}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-        {pipeline.length === 0 && (
-          <p className="py-6 text-center text-sm text-ink-soft">No pipeline data yet.</p>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-/* ── Win/Loss by Source ──────────────────────────────────────────────── */
-function WinLossBySource({ data }) {
-  return (
-    <Card className="p-6">
-      <SectionHeading icon={PieIcon} title="Win / Loss by Source" subtitle="Conversion rates" />
-      {!data || data.length === 0 ? (
-        <p className="py-10 text-center text-sm text-ink-soft">No source data yet.</p>
-      ) : (
-        <div className="mt-4">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#e8eef3" strokeDasharray="4 4" />
-                <XAxis dataKey="source" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} dy={6} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                <Tooltip cursor={{ fill: "#f1f5f9" }} />
-                <Bar dataKey="won" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} name="Won Deals" />
-                <Bar dataKey="lost" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Lost Deals" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 flex items-center justify-center gap-4 text-xs text-ink-soft">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"></span> Won</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500"></span> Lost</span>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-/* ── Upcoming follow-ups (next due tasks with quick checkoff) ───────────── */
-function UpcomingTasks({ tasks, onTaskComplete }) {
-  const upcoming = tasks
-    .filter((t) => t.status !== "Completed")
-    .sort((a, b) => {
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate) - new Date(b.dueDate);
-    })
-    .slice(0, 4);
-
-  const handleQuickCheck = async (task) => {
+  const handleToggleTask = async (taskId, currentStatus) => {
+    const nextStatus = currentStatus === "Completed" ? "Pending" : "Completed";
     try {
-      await tasksApi.update(task._id, { status: "Completed" });
-      toast.success(`Task "${task.title}" completed!`);
-      if (onTaskComplete) onTaskComplete();
+      await tasksApi.update(taskId, { status: nextStatus });
+      const updatedRes = await tasksApi.list();
+      setTasks(updatedRes.tasks || []);
     } catch (err) {
-      toast.error(err?.message || "Failed to complete task");
+      console.error("Failed to update task status:", err);
     }
   };
 
   return (
-    <Card className="flex flex-col p-6">
-      <SectionHeading
-        icon={CalendarClock}
-        title="Upcoming Follow-ups"
-        subtitle="Don't let these slip"
-        to="/tasks"
-      />
-      {upcoming.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink-soft">You're all caught up 🎉</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {upcoming.map((t) => {
-            const overdue = t.dueDate && isPast(new Date(t.dueDate));
-            return (
-              <li key={t._id} className="group flex items-start gap-3 rounded-xl p-1 transition hover:bg-surface-muted/50">
-                <button
-                  onClick={() => handleQuickCheck(t)}
-                  title="Mark as completed"
-                  className={cn(
-                    "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line transition hover:border-brand-500 hover:bg-brand-50"
-                  )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-transparent group-hover:bg-brand-500" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{t.title}</p>
-                  <p className={cn("text-xs", overdue ? "text-rose-600 font-medium" : "text-ink-soft")}>
-                    {t.dueDate ? shortDate(t.dueDate) : "No due date"}
-                    {t.relatedLead?.name ? ` · ${t.relatedLead.name}` : ""}
-                  </p>
-                </div>
-                <Badge className={PRIORITY_STYLES[t.priority]}>{t.priority}</Badge>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-/* ── Top open deals (highest-value active leads) ────────────────────── */
-function TopDeals({ leads }) {
-  const deals = [...leads]
-    .filter((l) => l.status !== "Won" && l.status !== "Lost")
-    .sort((a, b) => (b.value || 0) - (a.value || 0))
-    .slice(0, 5);
-
-  return (
-    <Card className="flex flex-col p-6">
-      <SectionHeading icon={Trophy} title="Top Open Deals" subtitle="Biggest active opportunities" to="/leads" />
-      {deals.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink-soft">No open deals yet.</p>
-      ) : (
-        <ul className="mt-4 space-y-2.5">
-          {deals.map((l, i) => {
-            const style = STAGE_STYLES[l.status] || STAGE_STYLES.New;
-            return (
-              <li key={l._id} className="flex items-center gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold text-ink-soft">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{l.name}</p>
-                  <p className="flex items-center gap-1 truncate text-xs text-ink-soft">
-                    <Building2 className="h-3 w-3" /> {l.company || "—"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-ink">
-                    {currency(l.value, { compact: true })}
-                  </p>
-                  <span className={cn("text-[11px] font-medium", style.badge, "bg-transparent px-0")}>
-                    {l.status}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-/* ── Engagement & Revenue Chart (Advanced Composed Chart) ────────────── */
-function EngagementChart({ trend }) {
-  const counts = trend.map((t) => t.leads);
-  const max = Math.max(...counts, 1);
-  const maxIndex = counts.indexOf(max);
-  const prev = maxIndex > 0 ? counts[maxIndex - 1] : 0;
-  const growth = prev > 0 ? Math.round(((max - prev) / prev) * 1000) / 10 : 17.8;
-
-  // Custom label: render a rounded "+x%" bubble above the tallest bar only.
-  const renderPeak = (props) => {
-    const { x, y, width, index } = props;
-    if (index !== maxIndex) return null;
-    const cx = x + width / 2;
-    return (
-      <g>
-        <circle cx={cx} cy={y} r={5} fill="#0369a1" stroke="#fff" strokeWidth={2} />
-        <rect x={cx - 26} y={y - 34} width={52} height={22} rx={11} fill="#0369a1" />
-        <text x={cx} y={y - 19} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">
-          +{growth}%
-        </text>
-      </g>
-    );
-  };
-
-  return (
-    <ResponsiveContainer width="100%" height={320}>
-      <ComposedChart data={trend} barCategoryGap="20%" margin={{ top: 40, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="#e8eef3" strokeDasharray="4 4" />
-        <XAxis
-          dataKey="month"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fill: "#64748b", fontSize: 12 }}
-          dy={6}
-        />
-        <YAxis
-          yAxisId="left"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fill: "#64748b", fontSize: 12 }}
-          width={35}
-          tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-        />
-        <YAxis
-          yAxisId="right"
-          orientation="right"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fill: "#10b981", fontSize: 12 }}
-          width={45}
-          tickFormatter={(v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`)}
-        />
-        <Tooltip cursor={{ fill: "#f1f5f9" }} content={<AdvancedChartTooltip />} />
-        
-        <Bar yAxisId="left" dataKey="leads" radius={[8, 8, 8, 8]} maxBarSize={42} label={renderPeak}>
-          {trend.map((t, i) => (
-            <Cell key={i} fill={i === maxIndex ? "#0369a1" : "#bae6fd"} />
-          ))}
-        </Bar>
-        <Line 
-          yAxisId="right" 
-          type="monotone" 
-          dataKey="won" 
-          stroke="#10b981" 
-          strokeWidth={3} 
-          dot={{ r: 4, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }} 
-          activeDot={{ r: 6 }} 
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
-  );
-}
-
-function AdvancedChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-line bg-surface px-4 py-3 shadow-[var(--shadow-pop)] min-w-[140px]">
-      <p className="mb-2 text-sm font-bold text-ink">{label}</p>
-      {payload.map((entry, index) => (
-        <div key={index} className="flex items-center justify-between text-sm mt-1">
-          <span className="flex items-center gap-1.5 text-ink-soft">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            {entry.name === "leads" ? "New Leads" : "Revenue Won"}
-          </span>
-          <span className="font-semibold text-ink ml-4 tabular-nums">
-            {entry.name === "leads" 
-              ? Number(entry.value).toLocaleString() 
-              : `₹${Number(entry.value).toLocaleString()}`}
-          </span>
+    <div className="mx-auto max-w-7xl space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-ink">
+            Good morning, {user.name.split(" ")[0]}
+          </h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Here's what's happening in <span className="font-semibold text-ink">{activeOrg?.name}</span> today.
+          </p>
         </div>
-      ))}
-    </div>
-  );
-}
+        <div className="flex items-center gap-3">
+          <Badge className="bg-surface border border-line text-ink-soft">Last 30 Days</Badge>
+          <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-copilot'))}>
+            <Sparkles className="h-4 w-4 mr-2 text-brand-600" /> Ask Copilot
+          </Button>
+        </div>
+      </div>
 
-function BalanceChart({ trend }) {
-  return (
-    <ResponsiveContainer width="100%" height={120}>
-      <AreaChart data={trend} margin={{ top: 14, right: 0, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id="balance" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <Tooltip content={<ChartTooltip prefix="₹" />} />
-        <Area type="monotone" dataKey="won" stroke="#0284c7" strokeWidth={2.5} fill="url(#balance)" />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card className="p-5 flex flex-col justify-center transition hover:border-brand-200 group">
+          <p className="text-xs font-bold text-ink-soft uppercase tracking-wider mb-1 group-hover:text-brand-600 transition">Open Pipeline</p>
+          <p className="font-display text-2xl font-bold text-ink transition">{currency(pipelineValue, { compact: true })}</p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center transition hover:border-brand-200 group">
+          <p className="text-xs font-bold text-ink-soft uppercase tracking-wider mb-1 group-hover:text-brand-600 transition">Revenue Won</p>
+          <p className="font-display text-2xl font-bold text-brand-600 transition">{currency(wonValue, { compact: true })}</p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center transition hover:border-brand-200 group">
+          <p className="text-xs font-bold text-ink-soft uppercase tracking-wider mb-1 group-hover:text-brand-600 transition">Active Deals</p>
+          <p className="font-display text-2xl font-bold text-ink transition">{activeLeads}</p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center transition hover:border-brand-200 group">
+          <p className="text-xs font-bold text-ink-soft uppercase tracking-wider mb-1 group-hover:text-brand-600 transition">Win Rate</p>
+          <p className="font-display text-2xl font-bold text-ink transition">{winRate}%</p>
+        </Card>
+      </div>
 
-function ChartTooltip({ active, payload, label, prefix = "", unit = "" }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-line bg-surface px-3 py-2 shadow-[var(--shadow-pop)]">
-      <p className="text-xs font-medium text-ink-soft">{label}</p>
-      <p className="text-sm font-semibold text-ink">
-        {prefix}
-        {Number(payload[0].value).toLocaleString()}
-        {unit}
-      </p>
-    </div>
-  );
-}
-
-/* ── Recent activity table (Payment History style) ──────────────────── */
-function ActivityTable({ leads }) {
-  if (!leads.length)
-    return <p className="py-10 text-center text-sm text-ink-soft">No recent activity yet.</p>;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs uppercase tracking-wide text-ink-soft">
-            <th className="pb-3 font-medium">Name</th>
-            <th className="pb-3 font-medium">Date</th>
-            <th className="hidden pb-3 font-medium sm:table-cell">Time</th>
-            <th className="pb-3 font-medium">Status</th>
-            <th className="pb-3 text-right font-medium">Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((l) => {
-            const style = STAGE_STYLES[l.status] || STAGE_STYLES.New;
-            return (
-              <tr
-                key={l.id}
-                className="border-t border-line transition hover:bg-surface-muted/50"
-              >
-                <td className="py-3.5">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={l.name} size="sm" />
-                    <div>
-                      <p className="font-medium text-ink">{l.name}</p>
-                      <p className="text-xs text-ink-soft">{l.company || "—"}</p>
+      {/* Main Content Split */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (Attention & Tasks) */}
+        <div className="space-y-6 lg:col-span-7 xl:col-span-8">
+          <AiAttentionCenter />
+          
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-semibold text-ink">Today's Tasks</h3>
+                <p className="text-xs text-ink-soft">Your immediate action items</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/tasks')} className="text-brand-600">
+                View All
+              </Button>
+            </div>
+            
+            {tasks.length === 0 ? (
+              <div className="py-8 text-center border border-dashed border-line rounded-xl bg-canvas">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-brand-300 mb-3" />
+                <p className="text-sm font-semibold text-ink">All caught up!</p>
+                <p className="text-xs text-ink-soft mt-1">No pending tasks for today.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tasks.slice(0, 5).map(task => (
+                  <div key={task._id} className="flex items-start gap-3 p-3 rounded-xl border border-line/60 bg-canvas transition hover:border-line group">
+                    <button
+                      onClick={() => handleToggleTask(task._id, task.status)}
+                      className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
+                        task.status === "Completed"
+                          ? "bg-brand-600 border-brand-600 text-white"
+                          : "border-line bg-surface text-transparent hover:border-brand-400 hover:text-brand-500"
+                      )}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-sm font-medium transition", task.status === "Completed" ? "line-through text-ink-soft" : "text-ink")}>
+                        {task.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className="bg-surface text-ink-soft text-[10px]">{shortDate(task.dueDate)}</Badge>
+                        {task.relatedLead && (
+                          <span className="text-[11px] text-ink-soft truncate flex items-center gap-1">
+                            <span className="h-1 w-1 bg-brand-400 rounded-full" />
+                            {task.relatedLead.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </td>
-                <td className="py-3.5 text-ink-soft">{shortDate(l.updatedAt)}</td>
-                <td className="hidden py-3.5 text-ink-soft sm:table-cell">
-                  {timeOf(l.updatedAt)}
-                </td>
-                <td className="py-3.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm text-ink">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                    {l.status}
-                  </span>
-                </td>
-                <td className="py-3.5 text-right font-semibold text-ink">
-                  {currency(l.value)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ── Top contacts (avatar stack — the "Mandatory Payments" slot) ─────── */
-function TopContactsCard({ contacts }) {
-  const top = contacts.slice(0, 4);
-  const overflow = Math.max(contacts.length - top.length, 0);
-
-  return (
-    <Card className="p-6">
-      <SectionHeading title="Top Contacts" subtitle="Your key relationships" to="/contacts" />
-      {contacts.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-soft">No contacts yet.</p>
-      ) : (
-        <div className="mt-5 flex items-center justify-between">
-          <div className="flex -space-x-3">
-            {top.map((c) => (
-              <Avatar
-                key={c._id}
-                name={c.name}
-                src={c.avatar}
-                size="md"
-                className="ring-2 ring-surface"
-              />
-            ))}
-            {overflow > 0 && (
-              <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white ring-2 ring-surface">
-                +{overflow}
+                ))}
               </div>
             )}
-          </div>
-          <Link
-            to="/contacts"
-            className="text-sm font-medium text-brand-700 hover:underline"
-          >
-            View all
-          </Link>
+          </Card>
         </div>
-      )}
-    </Card>
-  );
-}
 
-function RecentActivityStream({ notes, leads }) {
-  const recentNotes = notes
-    .slice()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 4);
-
-  return (
-    <Card className="p-6">
-      <SectionHeading
-        icon={Clock}
-        title="Recent Activity Stream"
-        subtitle="Latest notes & communications across leads"
-        to="/notes"
-      />
-      {recentNotes.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink-soft">No recent activity logged yet.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {recentNotes.map((n) => {
-            const isEmail = n.content.startsWith("Email Sent:");
-            return (
-              <li key={n._id} className="flex items-start gap-3 rounded-xl border border-line/60 bg-surface p-3 shadow-2xs">
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs",
-                    isEmail ? "bg-sky-50 text-sky-600" : "bg-brand-50 text-brand-600"
-                  )}
-                >
-                  {isEmail ? "📧" : "📝"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-xs font-semibold text-ink">
-                      {isEmail ? "Outreach Email Sent" : "Note Added"}
-                      {n.lead?.name ? ` · ${n.lead.name}` : ""}
-                    </p>
-                    <span className="text-[10px] text-ink-soft">{shortDate(n.createdAt)}</span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-soft">
-                    {n.content}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Skeleton className="h-12 w-80" />
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className="space-y-5 lg:col-span-3">
-          <Skeleton className="h-64 rounded-3xl" />
-          <Skeleton className="h-24 rounded-3xl" />
-        </div>
-        <div className="space-y-5 lg:col-span-6">
-          <Skeleton className="h-80 rounded-3xl" />
-          <Skeleton className="h-64 rounded-3xl" />
-        </div>
-        <div className="space-y-5 lg:col-span-3">
-          <Skeleton className="h-56 rounded-3xl" />
-          <Skeleton className="h-32 rounded-3xl" />
-          <Skeleton className="h-32 rounded-3xl" />
+        {/* Right Column (Charts) */}
+        <div className="space-y-6 lg:col-span-5 xl:col-span-4">
+          <PipelineTrendChart />
+          <ConversionFunnelChart data={stats.byStage} />
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ── Industry News & Sales Intel ──────────────────────────────────────── */
-function SalesIntelWidget() {
-  const news = [
-    {
-      id: 1,
-      tag: "Product Update",
-      title: "RevFlux AI Copilot enters early preview for select Indian SMBs",
-      date: "2 hours ago",
-    },
-    {
-      id: 2,
-      tag: "Market Intel",
-      title: "Q4 B2B Sales Trends: Why WhatsApp outreach is beating email by 40%",
-      date: "1 day ago",
-    },
-    {
-      id: 3,
-      tag: "Best Practices",
-      title: "How to use the new DPDP compliance tools to secure enterprise deals",
-      date: "3 days ago",
-    }
-  ];
-
-  return (
-    <Card className="flex flex-col p-6">
-      <SectionHeading icon={Newspaper} title="Sales Intel & News" subtitle="Industry updates" />
-      <ul className="mt-5 space-y-4">
-        {news.map((item) => (
-          <li key={item.id} className="group cursor-pointer">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-brand-600">
-              {item.tag}
-            </span>
-            <p className="text-sm font-semibold leading-snug text-ink transition group-hover:text-brand-600">
-              {item.title}
-            </p>
-            <span className="mt-1 block text-xs text-ink-soft">{item.date}</span>
-          </li>
-        ))}
-      </ul>
-      <button className="mt-4 w-full rounded-xl bg-surface-muted py-2 text-xs font-semibold text-ink-soft transition hover:bg-surface hover:text-ink">
-        Read More
-      </button>
-    </Card>
-  );
-}
-
-/* ── Quota Attainment Widget ─────────────────────────────────────────── */
-function QuotaWidget({ stats }) {
-  const goal = 2500000; // 25L INR goal for the quarter/month
-  const won = stats?.revenueWon || 0;
-  const progress = Math.min(100, Math.round((won / goal) * 100));
-  
-  return (
-    <Card className="p-6">
-      <SectionHeading icon={CreditCard} title="Quota Attainment" subtitle="Q4 Target" />
-      <div className="mt-5">
-        <div className="flex items-end justify-between mb-2">
-          <div>
-            <p className="font-display text-2xl font-bold text-ink tabular-nums">{currency(won, { compact: true })}</p>
-            <p className="text-xs text-ink-soft mt-0.5">Won this quarter</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold text-brand-700">{progress}%</p>
-            <p className="text-xs text-ink-soft mt-0.5">of {currency(goal, { compact: true })}</p>
-          </div>
-        </div>
-        <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-line/60">
-          <div 
-            className="h-full bg-brand-500 rounded-full relative" 
-            style={{ width: `${progress}%` }}
-          >
-            <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]" />
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/* ── Top-Row Metrics Ribbon ─────────────────────────────────────────── */
-function MetricsRibbon({ stats, tasks, leads }) {
-  const overdueCount = tasks.filter((t) => t.status !== "Completed" && t.dueDate && isPast(new Date(t.dueDate))).length;
-  const hotLeads = leads.filter((l) => l.priority === "High" || (l.aiRiskScore && l.aiRiskScore > 60)).length;
-
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Card className="p-3.5 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wider">Win Rate</p>
-          <p className="mt-0.5 font-display text-lg font-bold text-ink">{stats.conversionRate ?? 0}%</p>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-          <Trophy className="h-4 w-4" />
-        </div>
-      </Card>
-      
-      <Card className="p-3.5 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wider">Avg Deal Cycle</p>
-          <p className="mt-0.5 font-display text-lg font-bold text-ink">{stats.avgDealCycle ?? 0}d</p>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-          <CalendarClock className="h-4 w-4" />
-        </div>
-      </Card>
-
-      <Card className="p-3.5 flex items-center justify-between border-rose-100 bg-rose-50/20">
-        <div>
-          <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Overdue Tasks</p>
-          <p className="mt-0.5 font-display text-lg font-bold text-rose-600">{overdueCount}</p>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
-          <AlertTriangle className="h-4 w-4" />
-        </div>
-      </Card>
-
-      <Card className="p-3.5 flex items-center justify-between border-amber-100 bg-amber-50/20">
-        <div>
-          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Hot Deals / Risk</p>
-          <p className="mt-0.5 font-display text-lg font-bold text-amber-600">{hotLeads}</p>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-          <Target className="h-4 w-4" />
-        </div>
-      </Card>
     </div>
   );
 }

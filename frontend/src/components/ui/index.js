@@ -20,4 +20,5 @@ export {
 } from "./Dropdown";
 export { Tabs } from "./Tabs";
 export { Skeleton, Spinner } from "./Skeleton";
+export { EmptyState } from "./EmptyState";
 export * from "./CommandPalette";

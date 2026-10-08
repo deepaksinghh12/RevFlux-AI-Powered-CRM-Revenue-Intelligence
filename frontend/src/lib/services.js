@@ -10,6 +10,8 @@ export const authApi = {
   seedDemo: () => api.post("/auth/seed-demo"),
   createRazorpayOrder: (data) => api.post("/auth/create-razorpay-order", data),
   subscribe: (data) => api.post("/auth/subscribe", data),
+  requestOtp: (data) => api.post("/auth/otp/request", data),
+  verifyOtp: (data) => api.post("/auth/otp/verify", data),
 };
 
 /* ── Leads ──────────────────────────────────────────────────────────── */

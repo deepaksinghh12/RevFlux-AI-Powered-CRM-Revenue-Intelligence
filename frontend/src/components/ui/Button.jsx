@@ -4,14 +4,14 @@ import { cn } from "../../lib/utils";
 
 /* Button variants — the workhorse of the UI. */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] select-none",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] select-none",
   {
     variants: {
       variant: {
         primary:
-          "brand-gradient brand-gradient-hover text-white shadow-sm",
+          "bg-brand-600 hover:bg-brand-700 text-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
         secondary:
-          "bg-surface-muted text-ink hover:bg-brand-50 border border-line",
+          "bg-surface-muted text-ink hover:bg-brand-50 hover:text-brand-700 border border-transparent",
         outline:
           "border border-line bg-surface text-ink hover:bg-surface-muted",
         ghost: "text-ink-soft hover:bg-surface-muted hover:text-ink",

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -195,9 +196,8 @@ function Column({ stage, leads }) {
   const value = leads.reduce((s, l) => s + (l.value || 0), 0);
 
   return (
-    <div className="flex w-80 shrink-0 flex-col">
-      {/* Colored top accent bar */}
-      <div className={cn("mb-2 h-1 w-full rounded-full", style.bar)} />
+    <div className="flex w-[340px] shrink-0 flex-col rounded-2xl bg-canvas border border-line p-2 shadow-sm">
+      
 
       {/* Column header */}
       <div className="mb-3 flex items-center justify-between px-1">
@@ -255,6 +255,7 @@ function SortableCard({ lead }) {
 
 /* ── Card UI ────────────────────────────────────────────────────────── */
 function LeadCard({ lead, dragHandle, overlay }) {
+  const navigate = useNavigate();
   const [suggesting, setSuggesting] = useState(false);
 
   // AI: suggest the next best action / priority for this lead.
@@ -277,7 +278,7 @@ function LeadCard({ lead, dragHandle, overlay }) {
   return (
     <div
       className={cn(
-        "group rounded-2xl bg-surface p-3.5 shadow-[var(--shadow-soft)] transition border border-line/60",
+        "group rounded-xl bg-surface p-4 shadow-sm transition-all border border-line hover:border-brand-300 hover:shadow-[var(--shadow-card)]",
         overlay ? "shadow-[var(--shadow-pop)] rotate-2" : "hover:shadow-[var(--shadow-card)]"
       )}
     >

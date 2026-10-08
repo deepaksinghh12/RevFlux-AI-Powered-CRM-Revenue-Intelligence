@@ -5,9 +5,16 @@ const organizationMembershipSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      // required: true previously, now optional to allow email-only invites
       index: true,
     },
+    inviteEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    inviteToken: String,
+    inviteTokenExpiresAt: Date,
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
@@ -30,7 +37,15 @@ const organizationMembershipSchema = new mongoose.Schema(
   }
 );
 
-// A user can only have one membership per organization
-organizationMembershipSchema.index({ user: 1, organization: 1 }, { unique: true });
+// A user can only have one membership per organization, but we allow multiple null users for pending invites
+organizationMembershipSchema.index(
+  { user: 1, organization: 1 }, 
+  { unique: true, partialFilterExpression: { user: { $exists: true, $type: "objectId" } } }
+);
+
+organizationMembershipSchema.index(
+  { inviteEmail: 1, organization: 1 },
+  { unique: true, partialFilterExpression: { inviteEmail: { $exists: true, $type: "string" } } }
+);
 
 export default mongoose.model("OrganizationMembership", organizationMembershipSchema);

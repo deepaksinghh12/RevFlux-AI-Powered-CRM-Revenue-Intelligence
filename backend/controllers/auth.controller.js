@@ -10,6 +10,9 @@ import { ApiError } from "../utils/ApiError.js";
 import { generateToken } from "../utils/generateToken.js";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { Resend } from "resend";
+import EmailOTP from "../models/EmailOTP.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -120,6 +123,10 @@ export const updateProfile = asyncHandler(async (req, res) => {
   if (!user) throw new ApiError(404, "User not found");
 
   const { name, avatar, password, phone, jobTitle, department, signature } = req.body;
+
+  if (req.body.role || req.body.isSuperAdmin || req.body.workspaces) {
+    throw new ApiError(403, "Role or privilege modifications are not allowed via profile update");
+  }
 
   if (name) user.name = name;
   if (avatar !== undefined) user.avatar = avatar;
@@ -300,5 +307,155 @@ export const subscribePlan = asyncHandler(async (req, res) => {
     message: `Subscription upgraded to ${plan.toUpperCase()} plan.`,
     paymentId: paymentId || "N/A",
     user: toClientUser(req.user, memberships),
+  });
+});
+
+
+// ===============================
+// ACCEPT INVITE
+// ===============================
+export const acceptInvite = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    throw new ApiError(400, "Invite token is required");
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const membership = await OrganizationMembership.findOne({
+    inviteToken: hashedToken,
+    status: "invited",
+    inviteTokenExpiresAt: { $gt: Date.now() },
+  }).populate("organization");
+
+  if (!membership) {
+    throw new ApiError(400, "Invalid or expired invitation token");
+  }
+
+  // Bind to current logged-in user
+  membership.user = req.user._id;
+  membership.status = "active";
+  membership.inviteToken = undefined;
+  membership.inviteTokenExpiresAt = undefined;
+  membership.inviteEmail = undefined;
+
+  await membership.save();
+
+  const memberships = await getUserMemberships(req.user._id);
+
+  res.json({
+    success: true,
+    message: `You have successfully joined ${membership.organization.name}`,
+    user: toClientUser(req.user, memberships),
+  });
+});
+
+// ===============================
+// EMAIL OTP (PASSWORDLESS)
+// ===============================
+
+export const requestOtp = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) throw new ApiError(400, "Email is required");
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Generate 6-digit OTP
+  const otp = crypto.randomInt(100000, 999999).toString();
+  const salt = await bcrypt.genSalt(10);
+  const otpHash = await bcrypt.hash(otp, salt);
+
+  // Invalidate any existing active OTP for this email
+  await EmailOTP.deleteMany({ email: normalizedEmail });
+
+  // Expiration in 10 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await EmailOTP.create({
+    email: normalizedEmail,
+    otpHash,
+    expiresAt,
+  });
+
+  // Send email via Resend
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    try {
+      await resend.emails.send({
+        from: "RevFlux Security <onboarding@resend.dev>",
+        to: normalizedEmail,
+        subject: "Your RevFlux Verification Code",
+        html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+          <h2 style="color: #111827;">RevFlux Verification</h2>
+          <p style="color: #4b5563;">Your 6-digit verification code is:</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #f3f4f6; display: inline-block; border-radius: 6px; margin: 16px 0; color: #111827;">${otp}</div>
+          <p style="color: #4b5563;">This code will expire in 10 minutes. Do not share it with anyone.</p>
+        </div>`,
+      });
+    } catch (err) {
+      console.error("Resend Error in OTP:", err);
+      // We don't fail the request so we don't leak user existence
+    }
+  } else {
+    // For local dev without Resend key
+    console.log(`\n==========================================`);
+    console.log(`[DEV OTP] Code for ${normalizedEmail}: ${otp}`);
+    console.log(`==========================================\n`);
+  }
+
+  // Generic success response
+  res.status(200).json({
+    success: true,
+    message: "If the email is valid, an OTP has been sent.",
+  });
+});
+
+export const verifyOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) throw new ApiError(400, "Email and OTP are required");
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const otpRecord = await EmailOTP.findOne({ email: normalizedEmail });
+  if (!otpRecord) throw new ApiError(400, "Invalid or expired OTP");
+
+  if (otpRecord.expiresAt < new Date()) {
+    await EmailOTP.deleteOne({ _id: otpRecord._id });
+    throw new ApiError(400, "OTP has expired");
+  }
+
+  if (otpRecord.attempts >= otpRecord.maxAttempts) {
+    await EmailOTP.deleteOne({ _id: otpRecord._id });
+    throw new ApiError(400, "Maximum OTP verification attempts exceeded");
+  }
+
+  const isMatch = await bcrypt.compare(otp, otpRecord.otpHash);
+  if (!isMatch) {
+    otpRecord.attempts += 1;
+    await otpRecord.save();
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  // OTP verified successfully, consume it
+  await EmailOTP.deleteOne({ _id: otpRecord._id });
+
+  let user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    const name = normalizedEmail.split("@")[0];
+    const randomPassword = crypto.randomBytes(16).toString("hex");
+    user = await User.create({ name, email: normalizedEmail, password: randomPassword });
+    
+    const org = await Organization.create({ name: `${name}'s Workspace` });
+    await OrganizationMembership.create({ user: user._id, organization: org._id, role: "owner", status: "active" });
+  }
+
+  const memberships = await getUserMemberships(user._id);
+  const token = generateToken(user._id);
+
+  res.status(200).json({
+    success: true,
+    token,
+    user: toClientUser(user, memberships),
   });
 });

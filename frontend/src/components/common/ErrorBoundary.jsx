@@ -1,10 +1,11 @@
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "../ui";
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error) {
@@ -12,40 +13,28 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("Uncaught React Error:", error, errorInfo);
-    this.setState({ errorInfo });
+    console.error("Uncaught UI Error:", error, errorInfo);
   }
 
-  handleReload = () => {
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-surface-muted px-4 text-center">
-          <div className="w-full max-w-md rounded-3xl bg-surface p-8 shadow-lg">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
-              <AlertTriangle className="h-7 w-7" />
-            </div>
-            <h2 className="mt-4 font-display text-xl font-bold text-ink">Something went wrong</h2>
-            <p className="mt-2 text-xs text-ink-soft">
-              An unexpected UI rendering error occurred. Click reload to refresh your session.
-            </p>
-
-            {this.state.error && (
-              <div className="mt-4 max-h-40 overflow-auto rounded-xl bg-slate-900 p-3 text-left font-mono text-[11px] text-rose-300">
-                {this.state.error.toString()}
-              </div>
-            )}
-
-            <button
-              onClick={this.handleReload}
-              className="brand-gradient mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white shadow-xs hover:opacity-90"
-            >
-              <RefreshCw className="h-4 w-4" /> Reload Application
-            </button>
+        <div className="flex min-h-[400px] w-full flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/30 p-8 text-center shadow-xs">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-4">
+            <AlertTriangle className="h-6 w-6" />
           </div>
+          <h2 className="font-display text-lg font-bold text-ink mb-2">Something went wrong</h2>
+          <p className="max-w-md text-sm text-ink-soft mb-6">
+            An unexpected error occurred while rendering this page. Our team has been notified.
+          </p>
+          <Button variant="primary" onClick={this.handleReset}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Reload Page
+          </Button>
         </div>
       );
     }

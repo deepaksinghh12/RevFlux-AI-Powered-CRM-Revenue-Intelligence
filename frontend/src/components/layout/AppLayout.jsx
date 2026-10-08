@@ -7,6 +7,7 @@ import { ProductTour } from "../common/ProductTour";
 import { TeamChatWidget } from "../common/TeamChatWidget";
 import { CommandPalette } from "../ui/CommandPalette";
 import { CopilotDrawer } from "../common/CopilotDrawer";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -108,7 +109,9 @@ export function AppLayout() {
         
         <main className="flex flex-1 flex-col overflow-y-auto">
           <div className="flex-1 px-4 py-6 md:px-8">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </div>
           
           {/* Global Footer */}

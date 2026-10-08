@@ -3,9 +3,10 @@ import "../models/Lead.js";
 import "../models/Contact.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import { logActivity } from "../services/activity.service.js";
 
 export const getTasks = asyncHandler(async (req, res) => {
-  const filter = { organization: req.organization._id };
+  const filter = { organization: req.organization._id, isDeleted: { $ne: true } };
   if (req.membership && req.membership.role === 'rep') {
     filter.owner = req.user._id;
   }
@@ -26,12 +27,22 @@ export const getTasks = asyncHandler(async (req, res) => {
 export const createTask = asyncHandler(async (req, res) => {
   const task = await Task.create({
     ...req.body,
-    organization: req.organization._id
+    organization: req.organization._id,
+    owner: req.body.assignedTo || req.body.owner || req.user._id,
   });
 
   res.status(201).json({
     success: true,
     task
+  });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "TASK_CREATED",
+    entityType: "Task",
+    entityId: task._id,
+    details: { title: task.title }
   });
 });
 
@@ -46,11 +57,13 @@ export const updateTask = asyncHandler(async (req, res) => {
     updates.completedAt = null;
   }
 
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
   const task = await Task.findOneAndUpdate(
-    {
-      _id: req.params.id,
-      organization: req.organization._id
-    },
+    query,
     updates,
     {
       new: true,
@@ -59,27 +72,53 @@ export const updateTask = asyncHandler(async (req, res) => {
   );
 
   if (!task) {
-    throw new ApiError(404, "Task not found");
+    throw new ApiError(404, "Task not found or access denied");
   }
 
   res.json({
     success: true,
     task
   });
+
+  if (updates.status) {
+    logActivity({
+      organization: req.organization._id,
+      user: req.user._id,
+      action: updates.status === "Completed" ? "TASK_COMPLETED" : "TASK_UPDATED",
+      entityType: "Task",
+      entityId: task._id,
+      details: { title: task.title, status: task.status }
+    });
+  }
 });
 
 export const deleteTask = asyncHandler(async (req, res) => {
-  const task = await Task.findOneAndDelete({
-    _id: req.params.id,
-    organization: req.organization._id
-  });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const task = await Task.findOne(query);
 
   if (!task) {
-    throw new ApiError(404, "Task not found");
+    throw new ApiError(404, "Task not found or access denied");
   }
+  
+  task.isDeleted = true;
+  task.deletedAt = new Date();
+  await task.save();
 
   res.json({
     success: true,
     message: "Task deleted successfully"
+  });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "TASK_DELETED",
+    entityType: "Task",
+    entityId: task._id,
+    details: { title: task.title }
   });
 });

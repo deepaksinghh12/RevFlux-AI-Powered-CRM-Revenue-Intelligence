@@ -2,27 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Command } from "cmdk";
 import { Search, User, FileText, CheckSquare, Plus, Home, Users, Settings } from "lucide-react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 export function CommandPalette({ open, setOpen }) {
   const navigate = useNavigate();
 
-  // Toggle on Cmd+K or Ctrl+K
-  useHotkeys("meta+k, ctrl+k", (e) => {
-    e.preventDefault();
-    setOpen((o) => !o);
-  });
 
-  useEffect(() => {
-    const down = (e) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, [setOpen]);
 
   const runCommand = (command) => {
     setOpen(false);

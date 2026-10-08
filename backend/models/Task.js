@@ -9,6 +9,7 @@ const taskSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
+      required: true,
       index: true,
     },
     owner: {
@@ -63,10 +64,25 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
+);
+
+taskSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
 );
 
 export const Task = mongoose.model("Task", taskSchema);

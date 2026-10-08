@@ -23,6 +23,7 @@ import Team from "./pages/Team";
 import Download from "./pages/Download";
 import GenericPage from "./pages/GenericPage";
 import { useAuth } from "./context/AuthContext";
+import AcceptInvite from "./pages/auth/AcceptInvite";
 
 export default function App() {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/accept-invite/:token" element={<AcceptInvite />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/privacy" element={<Legal />} />
       <Route path="/terms" element={<Legal />} />

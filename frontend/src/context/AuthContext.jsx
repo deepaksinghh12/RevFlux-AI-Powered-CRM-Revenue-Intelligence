@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { authApi } from "../lib/services";
-import { TOKEN_KEY, ACTIVE_ORG_KEY } from "../lib/api";
+import api, { TOKEN_KEY, ACTIVE_ORG_KEY } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -56,19 +56,48 @@ export function AuthProvider({ children }) {
     return res.user;
   };
 
+  const processPendingInvite = async () => {
+    const token = localStorage.getItem("PENDING_INVITE_TOKEN");
+    if (token) {
+      try {
+        await api.post("/auth/accept-invite", { token });
+      } catch (err) {
+        console.error("Failed to accept pending invite:", err);
+      } finally {
+        localStorage.removeItem("PENDING_INVITE_TOKEN");
+        // Re-fetch user to get the new workspace
+        const res = await authApi.me();
+        persist(res);
+      }
+    }
+  };
+
   const login = useCallback(async (credentials) => {
     const res = await authApi.login(credentials);
-    return persist(res);
+    persist(res);
+    await processPendingInvite();
+    return res.user;
   }, []);
 
   const register = useCallback(async (data) => {
     const res = await authApi.register(data);
-    return persist(res);
+    persist(res);
+    await processPendingInvite();
+    return res.user;
   }, []);
 
   const googleLogin = useCallback(async (credential) => {
     const res = await authApi.google(credential);
-    return persist(res);
+    persist(res);
+    await processPendingInvite();
+    return res.user;
+  }, []);
+
+  const otpLogin = useCallback(async (data) => {
+    const res = await authApi.verifyOtp(data);
+    persist(res);
+    await processPendingInvite();
+    return res.user;
   }, []);
 
   const logout = useCallback(() => {
@@ -98,7 +127,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser }}
+      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser, otpLogin }}
     >
       {children}
     </AuthContext.Provider>

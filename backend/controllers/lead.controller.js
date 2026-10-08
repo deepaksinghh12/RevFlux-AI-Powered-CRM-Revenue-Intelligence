@@ -8,6 +8,7 @@ import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";
 import { escapeRegex } from "../utils/sanitize.js";
 import { triggerCadenceForLead } from "./outreach.controller.js";
+import { logActivity } from "../services/activity.service.js";
 
 // ===============================
 // GET ALL LEADS
@@ -16,7 +17,7 @@ import { triggerCadenceForLead } from "./outreach.controller.js";
 export const getLeads = asyncHandler(async (req, res) => {
   const { status, priority, source, search, sort } = req.query;
 
-  const query = { organization: req.organization._id };
+  const query = { organization: req.organization._id, isDeleted: { $ne: true } };
   // If the user is just a rep, only show their assigned leads.
   // Managers, Ops, Owners, and Superadmins see all leads.
   if (req.membership && req.membership.role === 'rep') {
@@ -71,15 +72,21 @@ export const getLeads = asyncHandler(async (req, res) => {
 // GET SINGLE LEAD ACTIVITY TIMELINE
 // ===============================
 export const getLeadActivity = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, organization: req.organization._id });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(query);
+  
   if (!lead) {
-    throw new ApiError(404, "Lead not found");
+    throw new ApiError(404, "Lead not found or access denied");
   }
 
   // Fetch associated notes and tasks in parallel
   const [notes, tasks] = await Promise.all([
-    Note.find({ organization: req.organization._id, lead: lead._id }).sort({ createdAt: -1 }),
-    Task.find({ organization: req.organization._id, relatedLead: lead._id }).sort({ createdAt: -1 }),
+    Note.find({ organization: req.organization._id, lead: lead._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 }),
+    Task.find({ organization: req.organization._id, relatedLead: lead._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 }),
   ]);
 
   // Combine into unified chronological activity timeline
@@ -136,13 +143,15 @@ export const getLeadActivity = asyncHandler(async (req, res) => {
 // GET SINGLE LEAD
 // ===============================
 export const getLead = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({
-    _id: req.params.id,
-    organization: req.organization._id,
-  });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(query);
 
   if (!lead) {
-    throw new ApiError(404, "Lead not found");
+    throw new ApiError(404, "Lead not found or access denied");
   }
 
   res.json({
@@ -208,19 +217,31 @@ export const createLead = asyncHandler(async (req, res) => {
     success: true,
     lead,
   });
+
+  // Background log
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "LEAD_CREATED",
+    entityType: "Lead",
+    entityId: lead._id,
+    details: { name: lead.name, source: lead.source }
+  });
 });
 
 // ===============================
 // UPDATE LEAD
 // ===============================
 export const updateLead = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({
-    _id: req.params.id,
-    organization: req.organization._id,
-  });
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(query);
 
   if (!lead) {
-    throw new ApiError(404, "Lead not found");
+    throw new ApiError(404, "Lead not found or access denied");
   }
 
   const allowedFields = [
@@ -288,32 +309,64 @@ export const updateLead = asyncHandler(async (req, res) => {
     success: true,
     lead,
   });
+
+  if (oldStatus !== lead.status) {
+    logActivity({
+      organization: req.organization._id,
+      user: req.user._id,
+      action: "LEAD_STAGE_CHANGED",
+      entityType: "Lead",
+      entityId: lead._id,
+      details: { oldStage: oldStatus, newStage: lead.status }
+    });
+  }
 });
 
 // ===============================
 // DELETE LEAD
 // ===============================
 export const deleteLead = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({
-    _id: req.params.id,
-    organization: req.organization._id,
-  });
-
-  if (!lead) {
-    throw new ApiError(404, "Lead not found");
+  const query = { _id: req.params.id, organization: req.organization._id, isDeleted: { $ne: true } };
+  // Even if they have delete permission, reps can only delete their own
+  if (req.membership && req.membership.role === 'rep') {
+    query.owner = req.user._id;
   }
 
-  await lead.deleteOne();
+  const lead = await Lead.findOne(query);
 
-  // Clean up associated notes & unset related lead on tasks
-  await Promise.all([
-    Note.deleteMany({ lead: lead._id }),
-    Task.updateMany({ relatedLead: lead._id }, { $set: { relatedLead: null } }),
-  ]);
+  if (!lead) {
+    throw new ApiError(404, "Lead not found or access denied");
+  }
+
+  // Soft delete instead of hard delete
+  lead.isDeleted = true;
+  lead.deletedAt = new Date();
+  await lead.save();
+
+  // Soft delete associated notes
+  await Note.updateMany(
+    { lead: lead._id, isDeleted: { $ne: true } }, 
+    { $set: { isDeleted: true, deletedAt: new Date() } }
+  );
+  
+  // Clean up associated tasks
+  await Task.updateMany(
+    { relatedLead: lead._id }, 
+    { $set: { relatedLead: null } }
+  );
 
   res.json({
     success: true,
     message: "Lead deleted",
+  });
+
+  logActivity({
+    organization: req.organization._id,
+    user: req.user._id,
+    action: "LEAD_DELETED",
+    entityType: "Lead",
+    entityId: lead._id,
+    details: { name: lead.name }
   });
 });
 
@@ -463,6 +516,7 @@ export const importLeads = asyncHandler(async (req, res) => {
 
     validToInsert.push({
       organization: req.organization._id,
+      owner: req.user._id,
       name: name || "Unknown Lead",
       company: item.company ? item.company.trim() : "",
       email: email,
