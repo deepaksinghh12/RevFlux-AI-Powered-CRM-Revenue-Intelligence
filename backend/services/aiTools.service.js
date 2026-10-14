@@ -3,6 +3,7 @@ import Lead, { LEAD_STATUSES } from "../models/Lead.js";
 import { Note } from "../models/Note.js";
 import User from "../models/User.js";
 import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+import { hasEffectivePermission } from "../middleware/rbac.middleware.js";
 
 // Define the tool schemas
 export const copilotTools = [
@@ -68,11 +69,15 @@ export const copilotTools = [
   }
 ];
 
-// Helper to check if role grants required permission
-const checkToolPermission = (role, permission) => {
-  if (!role) return false;
-  const perms = ROLE_PERMISSIONS[role] || [];
-  return perms.includes("*") || perms.includes(permission);
+// Helper to check if role and custom overrides grant required permission
+const checkToolPermission = (context, permission) => {
+  if (!context) return false;
+  // If full membership is passed or reconstructed in context
+  const membership = context.membership || {
+    role: context.role,
+    customPermissions: context.customPermissions || [],
+  };
+  return hasEffectivePermission(membership, permission);
 };
 
 export const executeTool = async (functionName, args, context = {}) => {
@@ -84,7 +89,7 @@ export const executeTool = async (functionName, args, context = {}) => {
 
   if (functionName === "searchLeads") {
     // 1. Permission check: leads.read
-    if (!checkToolPermission(role, PERMISSIONS.LEADS_READ)) {
+    if (!checkToolPermission(context, PERMISSIONS.LEADS_READ)) {
       return "Permission denied: Your role does not have permission to read leads.";
     }
 
@@ -114,7 +119,7 @@ export const executeTool = async (functionName, args, context = {}) => {
 
   if (functionName === "updateLeadStatus") {
     // 1. Permission check: leads.update
-    if (!checkToolPermission(role, PERMISSIONS.LEADS_UPDATE)) {
+    if (!checkToolPermission(context, PERMISSIONS.LEADS_UPDATE)) {
       return "Permission denied: Your role does not have permission to update leads.";
     }
 
@@ -146,7 +151,7 @@ export const executeTool = async (functionName, args, context = {}) => {
     if (!lead) return "Lead not found or permission denied.";
     
     // Also requires notes.create to log note
-    if (checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+    if (checkToolPermission(context, PERMISSIONS.NOTES_CREATE)) {
       await Note.create({
         organization: organizationId,
         owner: userId,
@@ -160,7 +165,7 @@ export const executeTool = async (functionName, args, context = {}) => {
 
   if (functionName === "addLeadNote") {
     // 1. Permission check: notes.create
-    if (!checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+    if (!checkToolPermission(context, PERMISSIONS.NOTES_CREATE)) {
       return "Permission denied: Your role does not have permission to create notes.";
     }
 
@@ -197,7 +202,7 @@ export const executeTool = async (functionName, args, context = {}) => {
 
   if (functionName === "draftEmail") {
     // 1. Permission check: notes.create
-    if (!checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+    if (!checkToolPermission(context, PERMISSIONS.NOTES_CREATE)) {
       return "Permission denied: Your role does not have permission to create draft notes.";
     }
 

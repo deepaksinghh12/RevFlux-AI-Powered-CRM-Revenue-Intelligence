@@ -11,6 +11,7 @@ import {
   uploadAttachment,
   deleteAttachment,
   getLeadActivity,
+  assignLeads,
 } from "../controllers/lead.controller.js";
 import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
@@ -32,6 +33,7 @@ router.route("/")
   .post(requirePermission(PERMISSIONS.LEADS_CREATE), checkLeadLimit, validateBody(leadSchemas.create), createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
+router.post("/assign", requirePermission(PERMISSIONS.LEADS_ASSIGN), assignLeads);
 router.post("/bulk", requirePermission(PERMISSIONS.LEADS_IMPORT), checkLeadLimit, importLeads);
 router.patch("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);
 router.put("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);

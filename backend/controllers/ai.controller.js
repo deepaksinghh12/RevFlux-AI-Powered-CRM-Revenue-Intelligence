@@ -323,6 +323,8 @@ When asked about deals, reference this context. You have access to tools to sear
     organizationId: req.organization._id,
     userId: req.user._id,
     role: req.membership.role,
+    membership: req.membership,
+    customPermissions: req.membership.customPermissions || [],
   });
 
   res.json({

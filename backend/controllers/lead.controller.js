@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Lead, { LEAD_STATUSES, LEAD_PRIORITIES } from "../models/Lead.js";
 import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
@@ -10,6 +11,9 @@ import cloudinary from "../config/cloudinary.js";
 import { escapeRegex } from "../utils/sanitize.js";
 import { triggerCadenceForLead } from "./outreach.controller.js";
 import { logActivity } from "../services/activity.service.js";
+import OrganizationMembership from "../models/OrganizationMembership.js";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+import { hasEffectivePermission } from "../middleware/rbac.middleware.js";
 
 // ===============================
 // GET ALL LEADS
@@ -161,9 +165,6 @@ export const getLead = asyncHandler(async (req, res) => {
   });
 });
 
-import OrganizationMembership from "../models/OrganizationMembership.js";
-import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
-
 // ===============================
 // CREATE LEAD
 // ===============================
@@ -194,9 +195,7 @@ export const createLead = asyncHandler(async (req, res) => {
   let finalOwnerId = req.user._id;
 
   if (targetOwnerId && targetOwnerId.toString() !== req.user._id.toString()) {
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign leads to other users");
@@ -277,9 +276,7 @@ export const updateLead = asyncHandler(async (req, res) => {
 
   const newOwner = req.body.assignedTo || req.body.owner;
   if (newOwner && newOwner.toString() !== lead.owner.toString()) {
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign leads to other users");
@@ -662,5 +659,91 @@ export const deleteAttachment = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: "Attachment removed",
+  });
+});
+
+// ===============================
+// SAFE ASSIGN & BULK REASSIGN LEADS
+// ===============================
+export const assignLeads = asyncHandler(async (req, res) => {
+  const { leadIds, targetUserId } = req.body;
+
+  if (!targetUserId || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+    throw new ApiError(400, "A valid targetUserId is required");
+  }
+
+  if (!Array.isArray(leadIds) || leadIds.length === 0) {
+    throw new ApiError(400, "leadIds must be a non-empty array of lead IDs");
+  }
+
+  // Validate all lead IDs are valid ObjectIds
+  for (const id of leadIds) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, `Invalid lead ID: ${id}`);
+    }
+  }
+
+  // Validate target user has active membership in this organization
+  const targetMembership = await OrganizationMembership.findOne({
+    user: targetUserId,
+    organization: req.organization._id,
+    status: "active",
+  }).populate("user", "name email");
+
+  if (!targetMembership) {
+    throw new ApiError(400, "Target user is not an active member of this workspace");
+  }
+
+  // Find candidate leads within this organization
+  const leadFilter = {
+    _id: { $in: leadIds },
+    organization: req.organization._id,
+    isDeleted: { $ne: true },
+  };
+
+  // If caller is rep, they can only reassign leads they currently own
+  if (req.membership.role === "rep") {
+    leadFilter.owner = req.user._id;
+  }
+
+  const leadsToAssign = await Lead.find(leadFilter);
+
+  if (leadsToAssign.length === 0) {
+    throw new ApiError(404, "No matching accessible leads found to assign");
+  }
+
+  const assignedLeadIds = leadsToAssign.map((l) => l._id);
+
+  // Update leads
+  await Lead.updateMany(
+    { _id: { $in: assignedLeadIds } },
+    { $set: { owner: targetUserId } }
+  );
+
+  // Log audit activity
+  const isBulk = assignedLeadIds.length > 1;
+  const actionName = isBulk ? "LEAD_BULK_ASSIGNED" : "LEAD_ASSIGNED";
+
+  for (const lead of leadsToAssign) {
+    logActivity({
+      organization: req.organization._id,
+      user: req.user._id,
+      action: actionName,
+      entityType: "Lead",
+      entityId: lead._id,
+      details: {
+        leadName: lead.name,
+        previousOwner: lead.owner,
+        newOwner: targetUserId,
+        targetEmail: targetMembership.user?.email,
+      },
+    });
+  }
+
+  res.json({
+    success: true,
+    message: `Successfully assigned ${assignedLeadIds.length} lead(s) to ${targetMembership.user?.name || targetMembership.user?.email}`,
+    assignedCount: assignedLeadIds.length,
+    assignedLeadIds,
   });
 });

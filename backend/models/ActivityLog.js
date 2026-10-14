@@ -23,6 +23,8 @@ const activityLogSchema = new mongoose.Schema(
         "LEAD_DELETED",
         "LEAD_RESTORED",
         "LEAD_STAGE_CHANGED",
+        "LEAD_ASSIGNED",
+        "LEAD_BULK_ASSIGNED",
         "NOTE_ADDED",
         "TASK_CREATED",
         "TASK_COMPLETED",

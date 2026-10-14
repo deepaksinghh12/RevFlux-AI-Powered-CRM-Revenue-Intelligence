@@ -39,7 +39,7 @@ import {
 } from "../components/ui";
 import { PageHeader } from "../components/common/PageHeader";
 import { useAuth } from "../context/AuthContext";
-import { authApi, aiApi, leadsApi } from "../lib/services";
+import { authApi, aiApi, leadsApi, orgApi } from "../lib/services";
 import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
 import { TOKEN_KEY } from "../lib/api";
@@ -645,13 +645,46 @@ function AiStatusWidget() {
 }
 
 /* ── 7. System Health & Security Audit Stream ─────────────────── */
-function AuditStreamCard({ user, logout }) {
-  const auditEvents = [
-    { text: "Workspace role initialized", time: "Just now", icon: ShieldCheck },
-    { text: "Razorpay payment checkout verified", time: "Today", icon: CreditCard },
-    { text: "SSL 256-bit session token generated", time: "Active session", icon: Lock },
-    { text: "Gemini AI model engine connected", time: "System online", icon: Sparkles },
-  ];
+function AuditStreamCard({ user, logout, activeOrg }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const canViewAuditLogs = ["owner", "admin"].includes(activeOrg?.role);
+
+  useEffect(() => {
+    if (!canViewAuditLogs) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    orgApi
+      .getAuditLogs({ page, limit: 6 })
+      .then((res) => {
+        if (res && res.data) {
+          setLogs(res.data);
+          if (res.pagination) {
+            setTotalPages(res.pagination.totalPages || 1);
+          }
+        }
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load audit logs");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [page, canViewAuditLogs]);
+
+  const formatActionName = (action) => {
+    return (action || "")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   return (
     <Card className="shadow-xs">
@@ -659,26 +692,84 @@ function AuditStreamCard({ user, logout }) {
         <div className="flex items-center gap-3">
           <SectionIcon icon={Activity} />
           <div>
-            <CardTitle>Security & Audit Stream</CardTitle>
-            <CardDescription>Recent account security & session events.</CardDescription>
+            <CardTitle>Workspace Security & Audit Trail</CardTitle>
+            <CardDescription>Live record mutations & administrative activity stream.</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-3 space-y-4">
-        <div className="space-y-2">
-          {auditEvents.map((evt, idx) => {
-            const Icon = evt.icon;
-            return (
-              <div key={idx} className="flex items-center justify-between rounded-xl border border-line/50 bg-surface-muted/40 p-2.5 text-xs">
-                <div className="flex items-center gap-2 text-ink">
-                  <Icon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
-                  <span>{evt.text}</span>
+        {!canViewAuditLogs ? (
+          <div className="rounded-xl border border-line/60 bg-surface-muted/40 p-4 text-xs text-ink-soft">
+            <div className="flex items-center gap-2 font-medium text-ink">
+              <ShieldCheck className="h-4 w-4 text-brand-600" /> Audit Log Restricted
+            </div>
+            <p className="mt-1">
+              Live audit trails are restricted to Workspace Owners and Administrators.
+            </p>
+          </div>
+        ) : loading && logs.length === 0 ? (
+          <div className="flex items-center gap-2 py-4 text-xs text-ink-soft">
+            <Spinner size="sm" /> Loading audit trail…
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3 text-xs text-rose-700">
+            {error}
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="rounded-xl border border-line/50 bg-surface-muted/30 p-4 text-center text-xs text-ink-soft">
+            No audit events recorded yet for this workspace.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {logs.map((log) => (
+              <div
+                key={log.id}
+                className="flex flex-col gap-1 rounded-xl border border-line/50 bg-surface-muted/40 p-2.5 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-ink">
+                    <ShieldCheck className="h-3.5 w-3.5 text-brand-600 shrink-0" />
+                    <span>{formatActionName(log.action)}</span>
+                  </div>
+                  <span className="text-[10px] text-ink-soft">{shortDate(log.createdAt)}</span>
                 </div>
-                <span className="text-[10px] text-ink-soft">{evt.time}</span>
+                <div className="flex items-center justify-between text-[11px] text-ink-soft">
+                  <span>
+                    By: <strong className="text-ink">{log.user?.name || log.user?.email || "System"}</strong>
+                  </span>
+                  <span className="font-mono text-[10px] text-ink-soft/80">
+                    {log.entityType}
+                  </span>
+                </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2 text-xs">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="text-[11px] text-ink-soft">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="pt-2 border-t border-line flex items-center justify-between">
           <span className="text-xs text-ink-soft">
@@ -735,7 +826,7 @@ export default function Settings() {
         <div className="lg:col-span-5 space-y-6">
           <RbacPermissionsCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
           <AiStatusWidget />
-          <AuditStreamCard user={user} logout={logout} />
+          <AuditStreamCard user={user} logout={logout} activeOrg={activeOrg} />
         </div>
       </div>
     </div>

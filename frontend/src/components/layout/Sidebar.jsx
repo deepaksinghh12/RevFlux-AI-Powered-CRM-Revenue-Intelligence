@@ -15,22 +15,24 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
+import { usePermission } from "../../hooks/usePermission";
 import { Dialog } from "../ui/Dialog";
 
 /* Primary navigation — icon + label rail, matching the reference sidebar. */
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutGrid, end: true },
-  { to: "/leads", label: "Leads", icon: Users },
-  { to: "/contacts", label: "Contacts", icon: Contact2 },
-  { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { to: "/notes", label: "Notes", icon: StickyNote },
-  { to: "/tasks", label: "Follow-ups", icon: CalendarCheck },
-  { to: "/outreach", label: "AI Outreach", icon: Mail },
-  { to: "/team", label: "Team & Roles", icon: ShieldCheck },
+  { to: "/", label: "Dashboard", icon: LayoutGrid, end: true, permission: "reports.read" },
+  { to: "/leads", label: "Leads", icon: Users, permission: "leads.read" },
+  { to: "/contacts", label: "Contacts", icon: Contact2, permission: "contacts.read" },
+  { to: "/pipeline", label: "Pipeline", icon: KanbanSquare, permission: "leads.read" },
+  { to: "/notes", label: "Notes", icon: StickyNote, permission: "notes.read" },
+  { to: "/tasks", label: "Follow-ups", icon: CalendarCheck, permission: "tasks.read" },
+  { to: "/outreach", label: "AI Outreach", icon: Mail, permission: "outreach.manage" },
+  { to: "/team", label: "Team & Roles", icon: ShieldCheck, permission: "team.read" },
 ];
 
 export function Sidebar({ onNavigate }) {
   const { user, activeOrg, switchOrganization, logout } = useAuth();
+  const { hasPermission } = usePermission();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [avatar, setAvatar] = useState(() => localStorage.getItem("revflux_avatar") || "");
 
@@ -41,6 +43,8 @@ export function Sidebar({ onNavigate }) {
     setAvatar(emoji);
     localStorage.setItem("revflux_avatar", emoji);
   };
+
+  const visibleNav = NAV.filter((item) => !item.permission || hasPermission(item.permission));
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-line bg-surface">
@@ -54,7 +58,7 @@ export function Sidebar({ onNavigate }) {
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1 px-3">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {visibleNav.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

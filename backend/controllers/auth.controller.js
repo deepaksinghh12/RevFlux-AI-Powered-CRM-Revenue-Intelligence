@@ -16,6 +16,9 @@ import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import EmailOTP from "../models/EmailOTP.js";
 import logger from "../config/logger.js";
 
+import { ROLE_PERMISSIONS } from "../config/permissions.js";
+import { computeEffectivePermissions } from "../middleware/rbac.middleware.js";
+
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const toClientUser = (user, memberships = []) => ({
@@ -37,6 +40,8 @@ const toClientUser = (user, memberships = []) => ({
     plan: m.organization.plan,
     leadLimit: m.organization.leadLimit,
     subscriptionStatus: m.organization.subscriptionStatus,
+    permissions: computeEffectivePermissions(m),
+    customPermissions: m.customPermissions || [],
   }))
 });
 

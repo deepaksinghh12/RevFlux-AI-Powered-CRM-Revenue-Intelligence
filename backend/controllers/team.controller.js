@@ -6,6 +6,8 @@ import crypto from "crypto";
 import { sendEmail } from "../services/email.service.js";
 import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import logger from "../config/logger.js";
+import { PERMISSIONS } from "../config/permissions.js";
+import { computeEffectivePermissions, hasEffectivePermission } from "../middleware/rbac.middleware.js";
 
 // ===============================
 // GET TEAM MEMBERS
@@ -35,6 +37,8 @@ export const getTeamMembers = asyncHandler(async (req, res) => {
           jobTitle: m.user.jobTitle || "",
           department: m.user.department || "",
           joinedAt: m.createdAt,
+          customPermissions: m.customPermissions || [],
+          effectivePermissions: computeEffectivePermissions(m),
         };
       } else {
         // Pending invite without a user account yet
@@ -50,6 +54,8 @@ export const getTeamMembers = asyncHandler(async (req, res) => {
           jobTitle: "",
           department: "",
           joinedAt: m.createdAt,
+          customPermissions: m.customPermissions || [],
+          effectivePermissions: computeEffectivePermissions(m),
         };
       }
     }),
@@ -251,5 +257,66 @@ export const removeTeamMember = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: `Removed ${membership.user.name} from the workspace`,
+  });
+});
+
+// ===============================
+// UPDATE MEMBER CUSTOM PERMISSION OVERRIDES
+// ===============================
+export const updateMemberPermissions = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { customPermissions } = req.body;
+  const orgId = req.organization._id;
+
+  if (!Array.isArray(customPermissions)) {
+    throw new ApiError(400, "customPermissions must be an array of { permission, granted } objects");
+  }
+
+  // Validate format and ensure all permissions exist in PERMISSIONS
+  const validPermissionValues = Object.values(PERMISSIONS);
+  const callerEffective = computeEffectivePermissions(req.membership);
+  const isCallerOwner = req.membership.role === "owner" || (req.user && req.user.isSuperAdmin);
+
+  for (const item of customPermissions) {
+    if (!item || typeof item.permission !== "string" || typeof item.granted !== "boolean") {
+      throw new ApiError(400, "Each item in customPermissions must have a valid string 'permission' and boolean 'granted'");
+    }
+
+    if (!validPermissionValues.includes(item.permission)) {
+      throw new ApiError(400, `Unknown permission: '${item.permission}'. Unknown permissions cannot be granted.`);
+    }
+
+    // Delegation boundary: Caller cannot grant a permission they themselves do not possess
+    if (item.granted === true && !isCallerOwner && !callerEffective.includes(item.permission)) {
+      throw new ApiError(403, `Delegation Denied: You cannot grant '${item.permission}' because you do not possess it.`);
+    }
+  }
+
+  const membership = await OrganizationMembership.findOne({
+    user: userId,
+    organization: orgId,
+  }).populate("user", "name email");
+
+  if (!membership) {
+    throw new ApiError(404, "Team member not found in this workspace");
+  }
+
+  // Workspace owner's authority cannot be diminished or tampered with by non-owners
+  if (membership.role === "owner" && !isCallerOwner) {
+    throw new ApiError(403, "Cannot modify permissions of workspace owner");
+  }
+
+  membership.customPermissions = customPermissions.map((c) => ({
+    permission: c.permission.trim(),
+    granted: c.granted,
+  }));
+
+  await membership.save();
+
+  res.json({
+    success: true,
+    message: `Updated custom permissions for ${membership.user?.name || membership.user?.email}`,
+    customPermissions: membership.customPermissions,
+    effectivePermissions: computeEffectivePermissions(membership),
   });
 });

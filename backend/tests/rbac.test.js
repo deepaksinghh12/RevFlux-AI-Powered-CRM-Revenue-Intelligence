@@ -24,6 +24,7 @@ import Lead from "../models/Lead.js";
 import { Contact } from "../models/Contact.js";
 import { Task } from "../models/Task.js";
 import { Note } from "../models/Note.js";
+import { ActivityLog } from "../models/ActivityLog.js";
 
 import { initSocket, disconnectUserSockets, revokeOrgRoomAccess } from "../utils/socket.js";
 import { executeTool } from "../services/aiTools.service.js";
@@ -509,6 +510,258 @@ describe("RevFlux — Critical Authorization Remediation Suite", () => {
       // Rep has no reports.read permission -> 403
       const repToken = makeToken(rep._id, 0);
       const repRes = await fetch(`http://localhost:${port}/api/analytics/overview`, {
+        headers: {
+          Authorization: `Bearer ${repToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+      });
+      assert.strictEqual(repRes.status, 403);
+    });
+  });
+
+  // 10. Safe Lead Reassignment & Bulk Assignment (Day 1B)
+  describe("10. Safe Lead Reassignment & Bulk Assignment", () => {
+    it("should allow manager with leads.assign to reassign leads and log audit activity", async () => {
+      const org = await Organization.create({ name: "Assign Org" });
+      const manager = await User.create({ name: "Assign Mgr", email: "mgr_assign@corp.com", password: "password123" });
+      const repA = await User.create({ name: "Rep A", email: "repa@corp.com", password: "password123" });
+      const repB = await User.create({ name: "Rep B", email: "repb@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: manager._id, organization: org._id, role: "manager", status: "active" });
+      await OrganizationMembership.create({ user: repA._id, organization: org._id, role: "rep", status: "active" });
+      await OrganizationMembership.create({ user: repB._id, organization: org._id, role: "rep", status: "active" });
+
+      const lead1 = await Lead.create({ organization: org._id, owner: repA._id, name: "Lead 1" });
+      const lead2 = await Lead.create({ organization: org._id, owner: repA._id, name: "Lead 2" });
+
+      const mgrToken = makeToken(manager._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/leads/assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${mgrToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          leadIds: [lead1._id.toString(), lead2._id.toString()],
+          targetUserId: repB._id.toString(),
+        }),
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.assignedCount, 2);
+
+      // Verify DB owner changed
+      const updated1 = await Lead.findById(lead1._id);
+      const updated2 = await Lead.findById(lead2._id);
+      assert.strictEqual(updated1.owner.toString(), repB._id.toString());
+      assert.strictEqual(updated2.owner.toString(), repB._id.toString());
+
+      // Verify audit logs were created
+      const logs = await ActivityLog.find({ organization: org._id, action: "LEAD_BULK_ASSIGNED" });
+      assert.strictEqual(logs.length, 2);
+    });
+
+    it("should reject assignment to a non-member of the workspace", async () => {
+      const org = await Organization.create({ name: "Assign Org 2" });
+      const manager = await User.create({ name: "Assign Mgr 2", email: "mgr_assign2@corp.com", password: "password123" });
+      const outsider = await User.create({ name: "Outsider", email: "outsider@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: manager._id, organization: org._id, role: "manager", status: "active" });
+
+      const lead = await Lead.create({ organization: org._id, owner: manager._id, name: "Lead X" });
+
+      const mgrToken = makeToken(manager._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/leads/assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${mgrToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          leadIds: [lead._id.toString()],
+          targetUserId: outsider._id.toString(),
+        }),
+      });
+
+      assert.strictEqual(res.status, 400);
+      const data = await res.json();
+      assert.match(data.message, /not an active member/i);
+    });
+
+    it("should prevent rep without leads.assign from assigning leads", async () => {
+      const org = await Organization.create({ name: "Assign Org 3" });
+      const rep = await User.create({ name: "Rep No Assign", email: "rep_noassign@corp.com", password: "password123" });
+      const repB = await User.create({ name: "Rep Target", email: "rep_target@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: rep._id, organization: org._id, role: "rep", status: "active" });
+      await OrganizationMembership.create({ user: repB._id, organization: org._id, role: "rep", status: "active" });
+
+      const lead = await Lead.create({ organization: org._id, owner: rep._id, name: "Rep Own Lead" });
+
+      const repToken = makeToken(rep._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/leads/assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${repToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          leadIds: [lead._id.toString()],
+          targetUserId: repB._id.toString(),
+        }),
+      });
+
+      assert.strictEqual(res.status, 403);
+    });
+  });
+
+  // 11. Per-Member Custom Permission Overrides (Day 1B)
+  describe("11. Per-Member Custom Permission Overrides", () => {
+    it("should allow an explicit custom grant to enable an action normally denied to rep", async () => {
+      const org = await Organization.create({ name: "Override Org 1" });
+      const owner = await User.create({ name: "Owner Perm", email: "owner_perm@corp.com", password: "password123" });
+      const rep = await User.create({ name: "Rep Perm", email: "rep_perm@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: owner._id, organization: org._id, role: "owner", status: "active" });
+      const repMembership = await OrganizationMembership.create({
+        user: rep._id,
+        organization: org._id,
+        role: "rep",
+        status: "active",
+        customPermissions: [{ permission: "reports.read", granted: true }],
+      });
+
+      // Rep normally lacks reports.read, but custom grant enables it
+      const repToken = makeToken(rep._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/analytics/overview`, {
+        headers: {
+          Authorization: `Bearer ${repToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+      });
+
+      assert.strictEqual(res.status, 200);
+    });
+
+    it("should enforce explicit deny over base role permissions (explicit deny wins)", async () => {
+      const org = await Organization.create({ name: "Override Org 2" });
+      const manager = await User.create({ name: "Manager Denied", email: "mgr_denied@corp.com", password: "password123" });
+
+      // Manager normally has leads.assign, but custom override explicitly denies it
+      await OrganizationMembership.create({
+        user: manager._id,
+        organization: org._id,
+        role: "manager",
+        status: "active",
+        customPermissions: [{ permission: "leads.assign", granted: false }],
+      });
+
+      const lead = await Lead.create({ organization: org._id, owner: manager._id, name: "Manager Lead" });
+
+      const mgrToken = makeToken(manager._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/leads/assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${mgrToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          leadIds: [lead._id.toString()],
+          targetUserId: manager._id.toString(),
+        }),
+      });
+
+      assert.strictEqual(res.status, 403);
+    });
+
+    it("should enforce delegation boundaries when modifying custom permissions", async () => {
+      const org = await Organization.create({ name: "Delegation Org" });
+      const admin = await User.create({ name: "Deleg Admin", email: "del_admin@corp.com", password: "password123" });
+      const rep = await User.create({ name: "Deleg Rep", email: "del_rep@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: admin._id, organization: org._id, role: "admin", status: "active" });
+      await OrganizationMembership.create({ user: rep._id, organization: org._id, role: "rep", status: "active" });
+
+      // Admin tries to grant an unknown permission -> 400
+      const adminToken = makeToken(admin._id, 0);
+      const badRes = await fetch(`http://localhost:${port}/api/team/${rep._id}/permissions`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          customPermissions: [{ permission: "superadmin.godmode", granted: true }],
+        }),
+      });
+
+      assert.strictEqual(badRes.status, 400);
+
+      // Admin grants valid permission that admin possesses (leads.import) -> 200
+      const okRes = await fetch(`http://localhost:${port}/api/team/${rep._id}/permissions`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          customPermissions: [{ permission: "leads.import", granted: true }],
+        }),
+      });
+
+      assert.strictEqual(okRes.status, 200);
+      const okData = await okRes.json();
+      assert.strictEqual(okData.success, true);
+      assert.strictEqual(okData.customPermissions[0].permission, "leads.import");
+    });
+  });
+
+  // 12. Paginated Live Audit Logs (Day 1B)
+  describe("12. Paginated Live Audit Logs", () => {
+    it("should allow owner/admin to read paginated audit logs without leaking secrets", async () => {
+      const org = await Organization.create({ name: "Audit Org" });
+      const owner = await User.create({ name: "Audit Owner", email: "aowner@corp.com", password: "password123" });
+      const rep = await User.create({ name: "Audit Rep", email: "arep2@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: owner._id, organization: org._id, role: "owner", status: "active" });
+      await OrganizationMembership.create({ user: rep._id, organization: org._id, role: "rep", status: "active" });
+
+      // Seed audit entries with sensitive fields
+      await ActivityLog.create({
+        organization: org._id,
+        user: owner._id,
+        action: "LEAD_CREATED",
+        entityType: "Lead",
+        entityId: new mongoose.Types.ObjectId(),
+        details: { leadName: "Secure Deal", password: "secret_password", token: "jwt_token_123" },
+      });
+
+      const ownerToken = makeToken(owner._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/organization/audit-logs?page=1&limit=10`, {
+        headers: {
+          Authorization: `Bearer ${ownerToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.success, true);
+      assert.strictEqual(data.data.length, 1);
+      assert.strictEqual(data.data[0].details.leadName, "Secure Deal");
+      assert.strictEqual(data.data[0].details.password, undefined); // Sanitized!
+      assert.strictEqual(data.data[0].details.token, undefined); // Sanitized!
+
+      // Rep should be denied (403)
+      const repToken = makeToken(rep._id, 0);
+      const repRes = await fetch(`http://localhost:${port}/api/organization/audit-logs`, {
         headers: {
           Authorization: `Bearer ${repToken}`,
           "X-Organization-Id": org._id.toString(),

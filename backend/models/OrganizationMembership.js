@@ -31,6 +31,19 @@ const organizationMembershipSchema = new mongoose.Schema(
       enum: ["active", "invited", "suspended"],
       default: "invited",
     },
+    customPermissions: [
+      {
+        permission: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        granted: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

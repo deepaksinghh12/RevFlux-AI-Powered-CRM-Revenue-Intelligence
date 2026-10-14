@@ -4,6 +4,7 @@ import {
   inviteTeamMember,
   updateMemberRole,
   removeTeamMember,
+  updateMemberPermissions,
 } from "../controllers/team.controller.js";
 import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/rbac.middleware.js";
@@ -16,6 +17,7 @@ router.use(requireOrg);
 router.get("/", requireRole("owner", "admin", "manager", "rep", "viewer"), getTeamMembers);
 router.post("/invite", requireRole("owner", "admin"), inviteTeamMember);
 router.put("/:userId/role", requireRole("owner"), updateMemberRole);
+router.put("/:userId/permissions", requireRole("owner", "admin"), updateMemberPermissions);
 router.delete("/:userId", requireRole("owner"), removeTeamMember);
 
 export default router;

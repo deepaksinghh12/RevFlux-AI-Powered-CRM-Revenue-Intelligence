@@ -28,6 +28,7 @@ export const leadsApi = {
   uploadAttachment: (id, formData) => api.post(`/leads/${id}/attachments`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
   deleteAttachment: (id, attachmentId) => api.delete(`/leads/${id}/attachments/${attachmentId}`),
   getActivity: (id) => api.get(`/leads/${id}/activity`),
+  assignLeads: (data) => api.post("/leads/assign", data),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */
@@ -91,5 +92,13 @@ export const teamApi = {
   getMembers: () => api.get("/team"),
   inviteMember: (data) => api.post("/team/invite", data),
   updateRole: (userId, data) => api.put(`/team/${userId}/role`, data),
+  updatePermissions: (userId, data) => api.put(`/team/${userId}/permissions`, data),
   removeMember: (userId) => api.delete(`/team/${userId}`),
+};
+
+/* ── Organization & Audit Logs ─────────────────────────────────────── */
+export const orgApi = {
+  getOrganization: () => api.get("/organization"),
+  updateOrganization: (data) => api.put("/organization", data),
+  getAuditLogs: (params) => api.get("/organization/audit-logs", { params }),
 };
