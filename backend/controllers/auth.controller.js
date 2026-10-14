@@ -11,8 +11,10 @@ import { generateToken } from "../utils/generateToken.js";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { Resend } from "resend";
+import { sendEmail } from "../services/email.service.js";
+import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import EmailOTP from "../models/EmailOTP.js";
+import logger from "../config/logger.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -86,7 +88,7 @@ export const register = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    token: generateToken(user._id),
+    token: generateToken(user._id, user.tokenVersion),
     user: toClientUser(user, memberships),
   });
 });
@@ -105,7 +107,7 @@ export const login = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    token: generateToken(user._id),
+    token: generateToken(user._id, user.tokenVersion),
     user: toClientUser(user, memberships),
   });
 });
@@ -117,6 +119,8 @@ export const getMe = asyncHandler(async (req, res) => {
     user: toClientUser(req.user, memberships),
   });
 });
+
+import { disconnectUserSockets } from "../utils/socket.js";
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
@@ -135,17 +139,32 @@ export const updateProfile = asyncHandler(async (req, res) => {
   if (department !== undefined) user.department = department;
   if (signature !== undefined) user.signature = signature;
 
+  let passwordChanged = false;
   if (password) {
     user.password = password;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    passwordChanged = true;
   }
 
   await user.save();
+
+  if (passwordChanged) {
+    disconnectUserSockets(user._id);
+  }
+
   const memberships = await getUserMemberships(user._id);
 
-  res.json({
+  const responseData = {
     success: true,
     user: toClientUser(user, memberships),
-  });
+  };
+
+  if (passwordChanged) {
+    responseData.token = generateToken(user._id, user.tokenVersion);
+    responseData.message = "Password updated successfully. Other active sessions have been revoked.";
+  }
+
+  res.json(responseData);
 });
 
 export const googleLogin = asyncHandler(async (req, res) => {
@@ -175,7 +194,7 @@ export const googleLogin = asyncHandler(async (req, res) => {
   }
 
   const memberships = await getUserMemberships(user._id);
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, user.tokenVersion);
 
   res.status(200).json({
     success: true,
@@ -365,44 +384,34 @@ export const requestOtp = asyncHandler(async (req, res) => {
   const otp = crypto.randomInt(100000, 999999).toString();
   const salt = await bcrypt.genSalt(10);
   const otpHash = await bcrypt.hash(otp, salt);
-
-  // Invalidate any existing active OTP for this email
-  await EmailOTP.deleteMany({ email: normalizedEmail });
-
-  // Expiration in 10 minutes
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
+  // Send OTP email using centralized email service (SECURITY identity)
+  const sendResult = await sendEmail({
+    category: EMAIL_CATEGORIES.SECURITY,
+    to: normalizedEmail,
+    subject: "Your RevFlux Verification Code",
+    html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h2 style="color: #111827;">RevFlux Verification</h2>
+      <p style="color: #4b5563;">Your 6-digit verification code is:</p>
+      <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #f3f4f6; display: inline-block; border-radius: 6px; margin: 16px 0; color: #111827;">${otp}</div>
+      <p style="color: #4b5563;">This code will expire in 10 minutes. Do not share it with anyone.</p>
+    </div>`,
+  });
+
+  if (!sendResult.success) {
+    // Invalidate any existing OTP so system is not left in a misleading state
+    await EmailOTP.deleteMany({ email: normalizedEmail });
+    throw new ApiError(502, "Unable to deliver verification code. Please try again later.");
+  }
+
+  // Delivery confirmed (or dev mode without key) - persist OTP record
+  await EmailOTP.deleteMany({ email: normalizedEmail });
   await EmailOTP.create({
     email: normalizedEmail,
     otpHash,
     expiresAt,
   });
-
-  // Send email via Resend
-  if (process.env.RESEND_API_KEY) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    try {
-      await resend.emails.send({
-        from: "RevFlux Security <onboarding@resend.dev>",
-        to: normalizedEmail,
-        subject: "Your RevFlux Verification Code",
-        html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-          <h2 style="color: #111827;">RevFlux Verification</h2>
-          <p style="color: #4b5563;">Your 6-digit verification code is:</p>
-          <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; padding: 12px 24px; background: #f3f4f6; display: inline-block; border-radius: 6px; margin: 16px 0; color: #111827;">${otp}</div>
-          <p style="color: #4b5563;">This code will expire in 10 minutes. Do not share it with anyone.</p>
-        </div>`,
-      });
-    } catch (err) {
-      console.error("Resend Error in OTP:", err);
-      // We don't fail the request so we don't leak user existence
-    }
-  } else {
-    // For local dev without Resend key
-    console.log(`\n==========================================`);
-    console.log(`[DEV OTP] Code for ${normalizedEmail}: ${otp}`);
-    console.log(`==========================================\n`);
-  }
 
   // Generic success response
   res.status(200).json({
@@ -451,11 +460,42 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   }
 
   const memberships = await getUserMemberships(user._id);
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, user.tokenVersion);
 
   res.status(200).json({
     success: true,
     token,
+    user: toClientUser(user, memberships),
+  });
+});
+
+// ===============================
+// SESSION REVOCATION
+// ===============================
+export const revokeSessions = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("+password");
+  if (!user) throw new ApiError(404, "User not found");
+
+  const { password } = req.body || {};
+  if (typeof password === "string" && password.trim().length > 0) {
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      throw new ApiError(401, "Invalid password confirmation");
+    }
+  }
+
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+
+  disconnectUserSockets(user._id);
+
+  const memberships = await getUserMemberships(user._id);
+  const newToken = generateToken(user._id, user.tokenVersion);
+
+  res.status(200).json({
+    success: true,
+    message: "All previous sessions have been successfully revoked.",
+    token: newToken,
     user: toClientUser(user, memberships),
   });
 });

@@ -39,6 +39,30 @@ export const createNote = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Note content is required");
   }
 
+  // If a lead is specified, verify existence and tenant/rep scoping
+  if (lead) {
+    const leadQuery = { _id: lead, organization: req.organization._id, isDeleted: { $ne: true } };
+    if (req.membership && req.membership.role === 'rep') {
+      leadQuery.owner = req.user._id;
+    }
+    const parentLead = await Lead.findOne(leadQuery);
+    if (!parentLead) {
+      throw new ApiError(404, "Referenced lead not found or access denied");
+    }
+  }
+
+  // If a contact is specified, verify existence and tenant/rep scoping
+  if (contact) {
+    const contactQuery = { _id: contact, organization: req.organization._id, isDeleted: { $ne: true } };
+    if (req.membership && req.membership.role === 'rep') {
+      contactQuery.owner = req.user._id;
+    }
+    const parentContact = await Contact.findOne(contactQuery);
+    if (!parentContact) {
+      throw new ApiError(404, "Referenced contact not found or access denied");
+    }
+  }
+
   const note = await Note.create({
     organization: req.organization._id,
     owner: req.user._id, // Assign to current user
@@ -75,6 +99,30 @@ export const updateNote = asyncHandler(async (req, res) => {
 
   if (!note) {
     throw new ApiError(404, "Note not found or access denied");
+  }
+
+  // If updating lead reference, verify parent record
+  if (lead !== undefined && lead !== null) {
+    const leadQuery = { _id: lead, organization: req.organization._id, isDeleted: { $ne: true } };
+    if (req.membership && req.membership.role === 'rep') {
+      leadQuery.owner = req.user._id;
+    }
+    const parentLead = await Lead.findOne(leadQuery);
+    if (!parentLead) {
+      throw new ApiError(404, "Referenced lead not found or access denied");
+    }
+  }
+
+  // If updating contact reference, verify parent record
+  if (contact !== undefined && contact !== null) {
+    const contactQuery = { _id: contact, organization: req.organization._id, isDeleted: { $ne: true } };
+    if (req.membership && req.membership.role === 'rep') {
+      contactQuery.owner = req.user._id;
+    }
+    const parentContact = await Contact.findOne(contactQuery);
+    if (!parentContact) {
+      throw new ApiError(404, "Referenced contact not found or access denied");
+    }
   }
 
   if (content !== undefined) note.content = content;

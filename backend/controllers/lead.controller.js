@@ -3,7 +3,8 @@ import { Note } from "../models/Note.js";
 import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
-import { Resend } from "resend";
+import { sendEmail } from "../services/email.service.js";
+import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import { getIO } from "../utils/socket.js";
 import cloudinary from "../config/cloudinary.js";
 import { escapeRegex } from "../utils/sanitize.js";
@@ -160,6 +161,9 @@ export const getLead = asyncHandler(async (req, res) => {
   });
 });
 
+import OrganizationMembership from "../models/OrganizationMembership.js";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+
 // ===============================
 // CREATE LEAD
 // ===============================
@@ -178,10 +182,37 @@ export const createLead = asyncHandler(async (req, res) => {
     aiSummary,
     aiRiskScore,
     order,
+    assignedTo,
+    owner,
   } = req.body;
 
   if (!name || !name.trim()) {
     throw new ApiError(400, "Lead name is required");
+  }
+
+  const targetOwnerId = assignedTo || owner;
+  let finalOwnerId = req.user._id;
+
+  if (targetOwnerId && targetOwnerId.toString() !== req.user._id.toString()) {
+    const userRole = req.membership.role;
+    const permissions = ROLE_PERMISSIONS[userRole] || [];
+    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+
+    if (!hasAssignPerm) {
+      throw new ApiError(403, "Access Denied: You do not have permission to assign leads to other users");
+    }
+
+    const targetMembership = await OrganizationMembership.findOne({
+      user: targetOwnerId,
+      organization: req.organization._id,
+      status: "active",
+    });
+
+    if (!targetMembership) {
+      throw new ApiError(400, "Assigned user is not an active member of this organization");
+    }
+
+    finalOwnerId = targetOwnerId;
   }
 
   const targetStatus = status && LEAD_STATUSES.includes(status) ? status : "New";
@@ -197,7 +228,7 @@ export const createLead = asyncHandler(async (req, res) => {
 
   const lead = await Lead.create({
     organization: req.organization._id,
-    owner: req.body.assignedTo || req.user._id,
+    owner: finalOwnerId,
     name: name.trim(),
     email: email ? email.trim() : undefined,
     phone: phone ? phone.trim() : "",
@@ -242,6 +273,29 @@ export const updateLead = asyncHandler(async (req, res) => {
 
   if (!lead) {
     throw new ApiError(404, "Lead not found or access denied");
+  }
+
+  const newOwner = req.body.assignedTo || req.body.owner;
+  if (newOwner && newOwner.toString() !== lead.owner.toString()) {
+    const userRole = req.membership.role;
+    const permissions = ROLE_PERMISSIONS[userRole] || [];
+    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+
+    if (!hasAssignPerm) {
+      throw new ApiError(403, "Access Denied: You do not have permission to assign leads to other users");
+    }
+
+    const targetMembership = await OrganizationMembership.findOne({
+      user: newOwner,
+      organization: req.organization._id,
+      status: "active",
+    });
+
+    if (!targetMembership) {
+      throw new ApiError(400, "Assigned user is not an active member of this organization");
+    }
+
+    lead.owner = newOwner;
   }
 
   const allowedFields = [
@@ -443,40 +497,29 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
     throw new ApiError(400, "This lead does not have an email address.");
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const sendResult = await sendEmail({
+    category: EMAIL_CATEGORIES.NOTIFICATIONS,
+    to: lead.email,
+    subject,
+    html: body.replace(/\n/g, "<br>"),
+  });
 
-  try {
-    // Resend requires a verified domain to send FROM.
-    // For testing/free tiers, you often use onboarding@resend.dev which only allows sending TO your own registered email.
-    // We will use Acme <onboarding@resend.dev> as the default for the free tier.
-    const { data, error } = await resend.emails.send({
-      from: "CRM Dashboard <onboarding@resend.dev>",
-      to: [lead.email],
-      subject: subject,
-      html: body.replace(/\n/g, "<br>"), // Basic conversion of plain text draft to HTML
-    });
-
-    if (error) {
-      console.error("Resend Error:", error);
-      throw new ApiError(500, error.message || "Failed to send email");
-    }
-
-    // Optional: Auto-create a Note that the email was sent
-    await Note.create({
-      organization: req.organization._id,
-      lead: lead._id,
-      content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
-    });
-
-    res.json({
-      success: true,
-      message: "Email sent successfully",
-      data,
-    });
-  } catch (err) {
-    console.error("Email send error:", err);
-    throw new ApiError(500, err.message || "Failed to send email via Resend");
+  if (!sendResult.success) {
+    throw new ApiError(500, sendResult.error?.message || "Failed to send email");
   }
+
+  // Auto-create a Note that the email was sent
+  await Note.create({
+    organization: req.organization._id,
+    lead: lead._id,
+    content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
+  });
+
+  res.json({
+    success: true,
+    message: "Email sent successfully",
+    data: sendResult.data,
+  });
 });
 
 // ===============================

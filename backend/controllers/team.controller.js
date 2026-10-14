@@ -3,7 +3,9 @@ import OrganizationMembership from "../models/OrganizationMembership.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import crypto from "crypto";
-import { Resend } from "resend";
+import { sendEmail } from "../services/email.service.js";
+import { EMAIL_CATEGORIES } from "../config/email.config.js";
+import logger from "../config/logger.js";
 
 // ===============================
 // GET TEAM MEMBERS
@@ -127,34 +129,35 @@ export const inviteTeamMember = asyncHandler(async (req, res) => {
 
   const membership = await OrganizationMembership.create(membershipData);
 
-  // Send Email
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const inviteUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite/${inviteToken}`;
-      
-      await resend.emails.send({
-        from: "RevFlux <onboarding@resend.dev>",
-        to: [normalizedEmail],
-        subject: `You've been invited to join ${req.organization.name} on RevFlux`,
-        html: `
-          <h3>You've been invited!</h3>
-          <p>You have been invited to join the <strong>${req.organization.name}</strong> workspace as a <strong>${assignedRole}</strong>.</p>
-          <p><a href="${inviteUrl}">Click here to accept the invitation</a></p>
-          <p>This link will expire in 7 days.</p>
-        `,
-      });
-    } catch (err) {
-      console.error("Failed to send invite email:", err);
-      // We don't fail the request if email fails, but we should probably log it.
-    }
-  } else {
-    console.warn(`[DEV MODE] Invite token for ${normalizedEmail}: ${inviteToken}`);
+  // Send invitation email via ONBOARDING identity
+  const inviteUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite/${inviteToken}`;
+  const inviteHtml = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h3 style="color: #111827;">You've been invited!</h3>
+      <p style="color: #4b5563;">You have been invited to join the <strong>${req.organization.name}</strong> workspace as a <strong>${assignedRole}</strong>.</p>
+      <p style="margin: 20px 0;"><a href="${inviteUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Click here to accept the invitation</a></p>
+      <p style="color: #6b7280; font-size: 14px;">This link will expire in 7 days.</p>
+    </div>
+  `;
+
+  const sendResult = await sendEmail({
+    category: EMAIL_CATEGORIES.ONBOARDING,
+    to: normalizedEmail,
+    subject: `You've been invited to join ${req.organization.name} on RevFlux`,
+    html: inviteHtml,
+  });
+
+  const emailDelivered = Boolean(sendResult.success);
+  if (!emailDelivered) {
+    logger.warn(`Failed to deliver organization invitation email to ${normalizedEmail}: ${sendResult.error?.message}`);
   }
 
   res.status(201).json({
     success: true,
-    message: `Invitation sent to ${normalizedEmail}!`,
+    emailDelivered,
+    message: emailDelivered
+      ? `Invitation sent to ${normalizedEmail}!`
+      : `Invitation created, but the invitation email could not be delivered.`,
     member: {
       id: user ? user._id : null,
       name: user ? user.name : "Pending Invite",
@@ -176,6 +179,11 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
   const validRoles = ["owner", "admin", "manager", "rep", "viewer"];
   if (!role || !validRoles.includes(role)) {
     throw new ApiError(400, "Invalid role specified");
+  }
+
+  // Admin cannot promote anyone to owner. Only an owner can assign owner role.
+  if (role === "owner" && req.membership.role !== "owner") {
+    throw new ApiError(403, "Access Denied: Only an active workspace owner can transfer or assign the owner role.");
   }
 
   const membership = await OrganizationMembership.findOne({
@@ -208,6 +216,8 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
   });
 });
 
+import { revokeOrgRoomAccess } from "../utils/socket.js";
+
 // ===============================
 // REMOVE TEAM MEMBER
 // ===============================
@@ -234,6 +244,9 @@ export const removeTeamMember = asyncHandler(async (req, res) => {
 
   membership.status = "suspended";
   await membership.save();
+
+  // Revoke organization room access from any active socket connected by this user
+  revokeOrgRoomAccess(userId, orgId);
 
   res.json({
     success: true,

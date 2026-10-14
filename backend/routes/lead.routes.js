@@ -18,7 +18,8 @@ import { checkLeadLimit } from "../middleware/plan.middleware.js";
 import { validateBody } from "../middleware/validate.middleware.js";
 import { leadSchemas } from "../validators/schemas.js";
 
-import { requireRole } from "../middleware/rbac.middleware.js";
+import { requireRole, requirePermission } from "../middleware/rbac.middleware.js";
+import { PERMISSIONS } from "../config/permissions.js";
 
 const router = Router();
 
@@ -27,28 +28,28 @@ router.use(protect);
 router.use(requireOrg);
 
 router.route("/")
-  .get(getLeads)
-  .post(checkLeadLimit, validateBody(leadSchemas.create), createLead);
+  .get(requirePermission(PERMISSIONS.LEADS_READ), getLeads)
+  .post(requirePermission(PERMISSIONS.LEADS_CREATE), checkLeadLimit, validateBody(leadSchemas.create), createLead);
 
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
-router.post("/bulk", requireRole("owner", "ops_head", "superadmin"), checkLeadLimit, importLeads);
-router.patch("/reorder", reorderLeads);
-router.put("/reorder", reorderLeads);
+router.post("/bulk", requirePermission(PERMISSIONS.LEADS_IMPORT), checkLeadLimit, importLeads);
+router.patch("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);
+router.put("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);
 
-router.get("/:id/activity", getLeadActivity);
-router.post("/:id/send-email", sendLeadEmail);
+router.get("/:id/activity", requirePermission(PERMISSIONS.LEADS_READ), getLeadActivity);
+router.post("/:id/send-email", requirePermission(PERMISSIONS.LEADS_UPDATE), sendLeadEmail);
 
 // Attachment routes (must be before the generic /:id route)
 router.route("/:id/attachments")
-  .post(upload.single("file"), uploadAttachment);
+  .post(requirePermission(PERMISSIONS.LEADS_UPDATE), upload.single("file"), uploadAttachment);
 
 router.route("/:id/attachments/:attachmentId")
-  .delete(deleteAttachment);
+  .delete(requirePermission(PERMISSIONS.LEADS_UPDATE), deleteAttachment);
 
 router.route("/:id")
-  .get(getLead)
-  .put(updateLead)
-  .patch(updateLead)
-  .delete(requireRole("owner", "ops_head", "superadmin"), deleteLead);
+  .get(requirePermission(PERMISSIONS.LEADS_READ), getLead)
+  .put(requirePermission(PERMISSIONS.LEADS_UPDATE), updateLead)
+  .patch(requirePermission(PERMISSIONS.LEADS_UPDATE), updateLead)
+  .delete(requirePermission(PERMISSIONS.LEADS_DELETE), deleteLead);
 
 export default router;

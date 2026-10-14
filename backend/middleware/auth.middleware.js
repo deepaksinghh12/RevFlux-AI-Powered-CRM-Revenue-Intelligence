@@ -29,6 +29,29 @@ export const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, "Not authorized, user no longer exists");
   }
 
+  // Reject deactivated or suspended accounts
+  if (user.status && user.status !== "active") {
+    throw new ApiError(401, "Not authorized, account is deactivated or suspended");
+  }
+
+  // Session Revocation: Validate token version against user record
+  const currentVersion = user.tokenVersion ?? 0;
+  const tokenVersion = decoded.tv;
+
+  if (tokenVersion !== undefined && tokenVersion !== null) {
+    if (Number(tokenVersion) !== currentVersion) {
+      throw new ApiError(401, "Not authorized, session has been revoked");
+    }
+  } else {
+    // Legacy token handling:
+    // Only accept legacy tokens (lacking 'tv') if the user's tokenVersion is at baseline 0.
+    // If the user has revoked sessions or updated credentials (currentVersion > 0),
+    // legacy tokens cannot bypass revocation and are rejected.
+    if (currentVersion !== 0) {
+      throw new ApiError(401, "Not authorized, session has been revoked");
+    }
+  }
+
   req.user = user;
   next();
 });

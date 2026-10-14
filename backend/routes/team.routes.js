@@ -13,9 +13,9 @@ const router = express.Router();
 router.use(protect);
 router.use(requireOrg);
 
-router.get("/", getTeamMembers);
-router.post("/invite", requireRole("owner", "ops_head", "superadmin"), inviteTeamMember);
-router.put("/:userId/role", requireRole("owner", "superadmin"), updateMemberRole);
-router.delete("/:userId", requireRole("owner", "superadmin"), removeTeamMember);
+router.get("/", requireRole("owner", "admin", "manager", "rep", "viewer"), getTeamMembers);
+router.post("/invite", requireRole("owner", "admin"), inviteTeamMember);
+router.put("/:userId/role", requireRole("owner"), updateMemberRole);
+router.delete("/:userId", requireRole("owner"), removeTeamMember);
 
 export default router;

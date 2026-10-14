@@ -119,8 +119,12 @@ export const generateEmailDraft = asyncHandler(async (req, res) => {
 // ===============================
 // HELPER: BUILD PIPELINE STATUS
 // ===============================
-export const buildPipelineStatus = async (orgId) => {
-  const leads = await Lead.find({ organization: orgId });
+export const buildPipelineStatus = async (orgId, userId = null, role = null) => {
+  const query = { organization: orgId, isDeleted: { $ne: true } };
+  if (role === 'rep' && userId) {
+    query.owner = userId;
+  }
+  const leads = await Lead.find(query);
   const stages = ["New", "Qualified", "Proposal", "Won", "Lost"];
   const byStage = Object.fromEntries(
     stages.map((s) => [s, { count: 0, value: 0 }])
@@ -165,7 +169,7 @@ export const salesInsights = asyncHandler(async (req, res) => {
   let stats = req.body?.pipelineStats || req.body?.stats;
 
   if (!stats) {
-    stats = await buildPipelineStatus(req.organization._id);
+    stats = await buildPipelineStatus(req.organization._id, req.user._id, req.membership?.role);
   }
 
   const insights = await generateSalesInsights(stats);
@@ -283,11 +287,15 @@ export const copilotChat = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Messages array is required");
   }
 
-  // Inject robust CRM context so the Copilot is context-aware
-  const stats = await buildPipelineStatus(req.organization._id);
+  // Inject robust CRM context scoped by user role
+  const stats = await buildPipelineStatus(req.organization._id, req.user._id, req.membership?.role);
   
   // Format top active deals for context
-  const activeLeads = await Lead.find({ owner: req.user._id, organization: req.organization._id, status: { $nin: ["Won", "Lost"] } })
+  const activeLeadQuery = { organization: req.organization._id, status: { $nin: ["Won", "Lost"] }, isDeleted: { $ne: true } };
+  if (req.membership?.role === 'rep') {
+    activeLeadQuery.owner = req.user._id;
+  }
+  const activeLeads = await Lead.find(activeLeadQuery)
     .sort({ value: -1 })
     .limit(5);
 
@@ -311,7 +319,11 @@ When asked about deals, reference this context. You have access to tools to sear
   `.trim();
 
   const { generateChatResponse } = await import("../services/ai.service.js");
-  const responseText = await generateChatResponse(messages, systemContext, { organizationId: req.organization._id, userId: req.user._id });
+  const responseText = await generateChatResponse(messages, systemContext, {
+    organizationId: req.organization._id,
+    userId: req.user._id,
+    role: req.membership.role,
+  });
 
   res.json({
     success: true,

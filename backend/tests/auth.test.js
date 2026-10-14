@@ -12,6 +12,7 @@ import Organization from "../models/Organization.js";
 import OrganizationMembership from "../models/OrganizationMembership.js";
 import { errorHandler } from "../middleware/error.middleware.js";
 import bcrypt from "bcryptjs";
+import { Resend } from "resend";
 
 let app;
 let httpServer;
@@ -243,16 +244,137 @@ describe("Phase A — Authentication Foundation & Test Suite", () => {
 
   describe("5. OTP Passwordless Authentication", () => {
     const EmailOTP = mongoose.model("EmailOTP");
+    const sampleResend = new Resend("mock_test_key");
+    const EmailsProto = Object.getPrototypeOf(sampleResend.emails);
+    const originalSend = EmailsProto.send;
 
-    it("should successfully request an OTP", async () => {
+    after(() => {
+      EmailsProto.send = originalSend;
+    });
+
+    it("should successfully request an OTP when Resend confirms delivery", async () => {
+      EmailsProto.send = async () => ({
+        data: { id: "msg_success_123" },
+        error: null,
+      });
+
       const res = await fetch(`http://localhost:${port}/api/auth/otp/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "otpuser@example.com" }),
+        body: JSON.stringify({ email: "successful_delivery@example.com" }),
       });
+
       assert.strictEqual(res.status, 200);
       const data = await res.json();
       assert.strictEqual(data.success, true);
+      assert.strictEqual(data.message, "If the email is valid, an OTP has been sent.");
+
+      const otpRecord = await EmailOTP.findOne({ email: "successful_delivery@example.com" });
+      assert.ok(otpRecord, "OTP record should be stored on successful delivery");
+      assert.ok(otpRecord.otpHash, "OTP hash should exist");
+      assert.strictEqual(otpRecord.attempts, 0);
+    });
+
+    it("should return HTTP 502 and client-safe message when Resend rejects delivery", async () => {
+      EmailsProto.send = async () => ({
+        data: null,
+        error: {
+          statusCode: 403,
+          name: "validation_error",
+          message: "The domain example.com is not verified. To fix this, verify your domain at resend.com/domains",
+        },
+      });
+
+      const res = await fetch(`http://localhost:${port}/api/auth/otp/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "rejected_domain@example.com" }),
+      });
+
+      assert.strictEqual(res.status, 502);
+      const data = await res.json();
+      assert.strictEqual(data.success, false);
+      assert.strictEqual(data.message, "Unable to deliver verification code. Please try again later.");
+    });
+
+    it("should return HTTP 502 and client-safe message when Resend throws a network exception", async () => {
+      EmailsProto.send = async () => {
+        throw new Error("ETIMEDOUT: Connection to api.resend.com timed out");
+      };
+
+      const res = await fetch(`http://localhost:${port}/api/auth/otp/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "network_timeout@example.com" }),
+      });
+
+      assert.strictEqual(res.status, 502);
+      const data = await res.json();
+      assert.strictEqual(data.success, false);
+      assert.strictEqual(data.message, "Unable to deliver verification code. Please try again later.");
+    });
+
+    it("should not leak provider details, raw error payloads, API keys, or stack traces on delivery failure", async () => {
+      EmailsProto.send = async () => ({
+        data: null,
+        error: {
+          statusCode: 403,
+          name: "restricted_api_key",
+          message: "API key re_123456789 cannot send from onboarding@resend.dev to unauthorized recipient",
+        },
+      });
+
+      const res = await fetch(`http://localhost:${port}/api/auth/otp/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "leak_check@example.com" }),
+      });
+
+      assert.strictEqual(res.status, 502);
+      const rawBody = await res.text();
+      assert.strictEqual(rawBody.toLowerCase().includes("resend"), false, "Should not leak provider name");
+      assert.strictEqual(rawBody.includes("re_123456789"), false, "Should not leak API key");
+      assert.strictEqual(rawBody.includes("restricted_api_key"), false, "Should not leak raw error name");
+      assert.strictEqual(rawBody.includes("unauthorized recipient"), false, "Should not leak raw error message");
+      assert.strictEqual(rawBody.includes("stack"), false, "Should not leak stack trace");
+    });
+
+    it("should maintain safe OTP state after a delivery failure and reject subsequent verification", async () => {
+      const plainOtp = "654321";
+      const salt = await bcrypt.genSalt(10);
+      const otpHash = await bcrypt.hash(plainOtp, salt);
+      await EmailOTP.create({
+        email: "failed_delivery@example.com",
+        otpHash,
+        expiresAt: new Date(Date.now() + 10 * 60000),
+      });
+
+      EmailsProto.send = async () => ({
+        data: null,
+        error: {
+          statusCode: 403,
+          message: "Sender domain not allowed",
+        },
+      });
+
+      const res = await fetch(`http://localhost:${port}/api/auth/otp/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "failed_delivery@example.com" }),
+      });
+      assert.strictEqual(res.status, 502);
+
+      const otpRecord = await EmailOTP.findOne({ email: "failed_delivery@example.com" });
+      assert.strictEqual(otpRecord, null, "No OTP should remain active after delivery failure");
+
+      const verifyRes = await fetch(`http://localhost:${port}/api/auth/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "failed_delivery@example.com", otp: plainOtp }),
+      });
+      assert.strictEqual(verifyRes.status, 400);
+      const verifyData = await verifyRes.json();
+      assert.strictEqual(verifyData.message, "Invalid or expired OTP");
     });
 
     it("should verify correct OTP for a new user and return a JWT", async () => {

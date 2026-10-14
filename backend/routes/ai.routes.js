@@ -34,7 +34,7 @@ router
 
 router.get("/pipeline-status", async (req, res, next) => {
   try {
-    const stats = await buildPipelineStatus(req.organization._id);
+    const stats = await buildPipelineStatus(req.organization._id, req.user._id, req.membership?.role);
     res.json({ success: true, stats });
   } catch (err) {
     next(err);

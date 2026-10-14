@@ -60,19 +60,47 @@ export const getContact = asyncHandler(async (req, res) => {
   });
 });
 
+import OrganizationMembership from "../models/OrganizationMembership.js";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+
 // ===============================
 // CREATE CONTACT
 // ===============================
 export const createContact = asyncHandler(async (req, res) => {
-  const { name, email, phone, company, title, tags, notes, favorite } = req.body;
+  const { name, email, phone, company, title, tags, notes, favorite, assignedTo, owner } = req.body;
 
   if (!name || !name.trim()) {
     throw new ApiError(400, "Contact name is required");
   }
 
+  const targetOwnerId = assignedTo || owner;
+  let finalOwnerId = req.user._id;
+
+  if (targetOwnerId && targetOwnerId.toString() !== req.user._id.toString()) {
+    const userRole = req.membership.role;
+    const permissions = ROLE_PERMISSIONS[userRole] || [];
+    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+
+    if (!hasAssignPerm) {
+      throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");
+    }
+
+    const targetMembership = await OrganizationMembership.findOne({
+      user: targetOwnerId,
+      organization: req.organization._id,
+      status: "active",
+    });
+
+    if (!targetMembership) {
+      throw new ApiError(400, "Assigned user is not an active member of this organization");
+    }
+
+    finalOwnerId = targetOwnerId;
+  }
+
   const contact = await Contact.create({
     organization: req.organization._id,
-    owner: req.body.assignedTo || req.user._id,
+    owner: finalOwnerId,
     name: name.trim(),
     email: email ? email.trim().toLowerCase() : "",
     phone: phone ? phone.trim() : "",
@@ -111,6 +139,29 @@ export const updateContact = asyncHandler(async (req, res) => {
 
   if (!contact) {
     throw new ApiError(404, "Contact not found or access denied");
+  }
+
+  const newOwner = req.body.assignedTo || req.body.owner;
+  if (newOwner && newOwner.toString() !== contact.owner.toString()) {
+    const userRole = req.membership.role;
+    const permissions = ROLE_PERMISSIONS[userRole] || [];
+    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+
+    if (!hasAssignPerm) {
+      throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");
+    }
+
+    const targetMembership = await OrganizationMembership.findOne({
+      user: newOwner,
+      organization: req.organization._id,
+      status: "active",
+    });
+
+    if (!targetMembership) {
+      throw new ApiError(400, "Assigned user is not an active member of this organization");
+    }
+
+    contact.owner = newOwner;
   }
 
   const allowedFields = [

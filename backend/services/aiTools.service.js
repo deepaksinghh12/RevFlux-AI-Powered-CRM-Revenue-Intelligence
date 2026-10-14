@@ -1,6 +1,8 @@
-import Lead from "../models/Lead.js";
+import mongoose from "mongoose";
+import Lead, { LEAD_STATUSES } from "../models/Lead.js";
 import { Note } from "../models/Note.js";
 import User from "../models/User.js";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
 
 // Define the tool schemas
 export const copilotTools = [
@@ -66,57 +68,159 @@ export const copilotTools = [
   }
 ];
 
-export const executeTool = async (functionName, args, context) => {
-  const { organizationId, userId } = context;
+// Helper to check if role grants required permission
+const checkToolPermission = (role, permission) => {
+  if (!role) return false;
+  const perms = ROLE_PERMISSIONS[role] || [];
+  return perms.includes("*") || perms.includes(permission);
+};
+
+export const executeTool = async (functionName, args, context = {}) => {
+  const { organizationId, userId, role } = context;
+
+  if (!organizationId || !userId || !role) {
+    return "Error: Authentication or organization context missing.";
+  }
 
   if (functionName === "searchLeads") {
-    const leads = await Lead.find({
+    // 1. Permission check: leads.read
+    if (!checkToolPermission(role, PERMISSIONS.LEADS_READ)) {
+      return "Permission denied: Your role does not have permission to read leads.";
+    }
+
+    if (!args || typeof args.query !== "string" || !args.query.trim()) {
+      return "Invalid argument: query is required.";
+    }
+
+    const queryFilter = {
       organization: organizationId,
+      isDeleted: { $ne: true },
       $or: [
-        { name: { $regex: args.query, $options: "i" } },
-        { company: { $regex: args.query, $options: "i" } }
+        { name: { $regex: args.query.trim(), $options: "i" } },
+        { company: { $regex: args.query.trim(), $options: "i" } }
       ]
-    }).limit(5).select("_id name company status");
+    };
+
+    // If rep, restrict search to assigned leads
+    if (role === "rep") {
+      queryFilter.owner = userId;
+    }
+
+    const leads = await Lead.find(queryFilter).limit(5).select("_id name company status");
     
     if (leads.length === 0) return "No leads found matching the query.";
     return JSON.stringify(leads);
   }
 
   if (functionName === "updateLeadStatus") {
+    // 1. Permission check: leads.update
+    if (!checkToolPermission(role, PERMISSIONS.LEADS_UPDATE)) {
+      return "Permission denied: Your role does not have permission to update leads.";
+    }
+
+    if (!args || !args.leadId || !mongoose.Types.ObjectId.isValid(args.leadId)) {
+      return "Invalid argument: A valid leadId is required.";
+    }
+
+    if (!args.status || !LEAD_STATUSES.includes(args.status)) {
+      return `Invalid argument: status must be one of: ${LEAD_STATUSES.join(", ")}.`;
+    }
+
+    const leadFilter = {
+      _id: args.leadId,
+      organization: organizationId,
+      isDeleted: { $ne: true }
+    };
+
+    // Reps can only mutate their own leads
+    if (role === "rep") {
+      leadFilter.owner = userId;
+    }
+
     const lead = await Lead.findOneAndUpdate(
-      { _id: args.leadId, organization: organizationId },
+      leadFilter,
       { status: args.status },
       { new: true }
     );
+
+    if (!lead) return "Lead not found or permission denied.";
+    
+    // Also requires notes.create to log note
+    if (checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+      await Note.create({
+        organization: organizationId,
+        owner: userId,
+        lead: lead._id,
+        content: `Status changed to ${args.status} via Copilot.`
+      });
+    }
+    
+    return `Lead '${lead.name}' successfully updated to ${args.status}.`;
+  }
+
+  if (functionName === "addLeadNote") {
+    // 1. Permission check: notes.create
+    if (!checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+      return "Permission denied: Your role does not have permission to create notes.";
+    }
+
+    if (!args || !args.leadId || !mongoose.Types.ObjectId.isValid(args.leadId)) {
+      return "Invalid argument: A valid leadId is required.";
+    }
+
+    if (!args.content || typeof args.content !== "string" || !args.content.trim()) {
+      return "Invalid argument: Note content is required.";
+    }
+
+    const leadFilter = {
+      _id: args.leadId,
+      organization: organizationId,
+      isDeleted: { $ne: true }
+    };
+
+    if (role === "rep") {
+      leadFilter.owner = userId;
+    }
+
+    const lead = await Lead.findOne(leadFilter);
     if (!lead) return "Lead not found or permission denied.";
     
     await Note.create({
       organization: organizationId,
       owner: userId,
       lead: lead._id,
-      content: `Status changed to ${args.status} via Copilot.`
-    });
-    
-    return `Lead '${lead.name}' successfully updated to ${args.status}.`;
-  }
-
-  if (functionName === "addLeadNote") {
-    const lead = await Lead.findOne({ _id: args.leadId, organization: organizationId });
-    if (!lead) return "Lead not found.";
-    
-    await Note.create({
-      organization: organizationId,
-      owner: userId,
-      lead: lead._id,
-      content: args.content
+      content: args.content.trim()
     });
     
     return "Note added successfully.";
   }
 
   if (functionName === "draftEmail") {
-    const lead = await Lead.findOne({ _id: args.leadId, organization: organizationId });
-    if (!lead) return "Lead not found.";
+    // 1. Permission check: notes.create
+    if (!checkToolPermission(role, PERMISSIONS.NOTES_CREATE)) {
+      return "Permission denied: Your role does not have permission to create draft notes.";
+    }
+
+    if (!args || !args.leadId || !mongoose.Types.ObjectId.isValid(args.leadId)) {
+      return "Invalid argument: A valid leadId is required.";
+    }
+
+    if (!args.subject || !args.body) {
+      return "Invalid argument: Subject and body are required.";
+    }
+
+    const leadFilter = {
+      _id: args.leadId,
+      organization: organizationId,
+      isDeleted: { $ne: true }
+    };
+
+    if (role === "rep") {
+      leadFilter.owner = userId;
+    }
+
+    const lead = await Lead.findOne(leadFilter);
+    if (!lead) return "Lead not found or permission denied.";
     
     await Note.create({
       organization: organizationId,

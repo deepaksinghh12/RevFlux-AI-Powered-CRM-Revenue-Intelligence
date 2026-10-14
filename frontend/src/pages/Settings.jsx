@@ -42,6 +42,7 @@ import { useAuth } from "../context/AuthContext";
 import { authApi, aiApi, leadsApi } from "../lib/services";
 import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
+import { TOKEN_KEY } from "../lib/api";
 import { SubscriptionModal } from "../components/billing/SubscriptionModal";
 
 /* ── Icon Accent Helper ───────────────────────────────────────── */
@@ -383,6 +384,7 @@ function WorkspaceCard() {
 
 /* ── 4. Security & Password Card ───────────────────────────────── */
 function SecurityCard() {
+  const [revoking, setRevoking] = useState(false);
   const {
     register,
     handleSubmit,
@@ -395,11 +397,32 @@ function SecurityCard() {
 
   const onSubmit = async ({ password }) => {
     try {
-      await authApi.updateProfile({ password });
-      toast.success("Password updated successfully");
+      const res = await authApi.updateProfile({ password });
+      if (res?.token) {
+        localStorage.setItem(TOKEN_KEY, res.token);
+      }
+      toast.success(res?.message || "Password updated successfully");
       reset();
     } catch (err) {
       toast.error(err.message || "Could not update password");
+    }
+  };
+
+  const handleRevokeSessions = async () => {
+    if (!window.confirm("Are you sure you want to invalidate all other active sessions across all devices?")) {
+      return;
+    }
+    setRevoking(true);
+    try {
+      const res = await authApi.revokeSessions();
+      if (res?.token) {
+        localStorage.setItem(TOKEN_KEY, res.token);
+      }
+      toast.success(res?.message || "All previous sessions have been revoked.");
+    } catch (err) {
+      toast.error(err?.message || "Failed to revoke sessions");
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -415,7 +438,7 @@ function SecurityCard() {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-4">
+      <CardContent className="pt-4 space-y-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="New Password" error={errors.password?.message}>
@@ -454,69 +477,73 @@ function SecurityCard() {
             </Button>
           </div>
         </form>
+
+        <div className="pt-4 border-t border-line flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-ink">Active Session Revocation</p>
+            <p className="text-[11px] text-ink-soft">
+              Instantly invalidate all existing sessions and sign out of other devices.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            loading={revoking}
+            onClick={handleRevokeSessions}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+          >
+            Revoke All Other Sessions
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
 /* ── 5. RBAC & Multi-Role Permissions Management Panel ────────── */
-function RbacPermissionsCard({ user, updateUser, activeOrg }) {
+function RbacPermissionsCard({ user, activeOrg }) {
   const currentRole = activeOrg?.role || "rep";
-  const [updating, setUpdating] = useState(false);
 
-  const rolesConfig = [
-    {
-      id: "superadmin",
-      title: "RevFlux Super Admin",
-      desc: "Platform vendor administrator managing all client tenant accounts, system logs, and global API keys.",
-      permissions: ["Cross-Tenant Workspace Control", "Global Gemini API Allocation", "Platform Diagnostics & Audits", "System Configuration"],
-      color: "bg-indigo-900 text-white border-indigo-700",
-    },
+  const canonicalRolesConfig = [
     {
       id: "owner",
-      title: "Business Owner",
-      desc: "Purchased the RevFlux subscription. Has total control over company workspace, Razorpay billing, and plan tier upgrades.",
-      permissions: ["Manage Billing & Razorpay", "Assign Department Roles", "Workspace Deletion & Data Reset", "Executive Analytics"],
+      title: "Workspace Owner",
+      desc: "Full administrative and billing authority over the workspace, subscription tier, and member roles.",
+      permissions: ["Manage Billing & Subscription", "Assign Team Roles", "Manage Workspaces", "Executive Analytics & Reports", "All Lead & CRM Operations"],
       color: "bg-purple-50 text-purple-700 border-purple-200",
     },
     {
-      id: "ops_head",
-      title: "Operations Head",
-      desc: "Manages company-wide data pipelines, CSV imports, workflow automation, and CRM integrations.",
-      permissions: ["CSV Data Ingestion Pipeline", "CRM Workflow Automation", "Integration Webhooks", "Workspace Audit Stream"],
+      id: "admin",
+      title: "Workspace Administrator",
+      desc: "Full operational management over CRM records, outreach cadences, member invites, and data pipelines.",
+      permissions: ["Invite Team Members", "Manage Outreach Sequences", "Import Bulk Data", "Manage Leads, Tasks, Contacts & Notes", "Analytics & Reports"],
       color: "bg-blue-50 text-blue-700 border-blue-200",
     },
     {
       id: "manager",
       title: "Sales Manager",
-      desc: "Oversees sales reps, pipeline stages, lead risk scoring, task assignments, and target deal quotas.",
-      permissions: ["Pipeline Kanban Control", "AI Deal Risk Analytics", "Task Assignment & Schedules", "Team Performance Reports"],
+      desc: "Oversees team sales performance, pipeline stages, lead risk scoring, task assignments, and target deal quotas.",
+      permissions: ["Assign Leads & Tasks", "Full Pipeline Kanban Control", "AI Deal Risk Analytics", "Team Performance Reports"],
       color: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
     {
       id: "rep",
       title: "Sales Representative",
-      desc: "Front-line employee managing assigned leads, logging notes, and executing AI outreach emails.",
-      permissions: ["Assigned Lead Management", "Log Notes & Follow-ups", "AI Email Outreach Drafting", "Personal Activity Feed"],
+      desc: "Manages assigned leads, creates contacts, logs notes, updates assigned tasks, and executes AI outreach.",
+      permissions: ["Assigned Lead Management", "Log Notes & Follow-ups", "AI Email Outreach Drafting", "Manage Assigned Tasks & Contacts"],
       color: "bg-amber-50 text-amber-700 border-amber-200",
+    },
+    {
+      id: "viewer",
+      title: "Read-Only Viewer",
+      desc: "View-only access across CRM records, pipeline metrics, and reports without modification privileges.",
+      permissions: ["View CRM Leads", "View Contacts & Notes", "View Tasks", "View Analytics & Reports"],
+      color: "bg-slate-50 text-slate-700 border-slate-200",
     },
   ];
 
-  const handleRoleSelect = async (roleId) => {
-    if (roleId === currentRole) return;
-    setUpdating(true);
-    try {
-      const res = await authApi.updateProfile({ role: roleId });
-      updateUser(res.user);
-      toast.success(`Active workspace role switched to ${roleId.toUpperCase()}`);
-    } catch (err) {
-      toast.error("Failed to switch role");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const activeRoleObj = rolesConfig.find((r) => r.id === currentRole) || rolesConfig[0];
+  const activeRoleObj = canonicalRolesConfig.find((r) => r.id === currentRole) || canonicalRolesConfig[3];
 
   return (
     <Card className="shadow-xs border-brand-200/50 bg-gradient-to-br from-surface to-brand-50/20">
@@ -525,10 +552,10 @@ function RbacPermissionsCard({ user, updateUser, activeOrg }) {
           <SectionIcon icon={Users} className="bg-brand-100 text-brand-800" />
           <div>
             <div className="flex items-center gap-2">
-              <CardTitle>RBAC & Team Role Engine</CardTitle>
-              <Badge className="bg-brand-600 text-white text-[9px] uppercase font-bold">Multi-Role Enabled</Badge>
+              <CardTitle>RBAC & Workspace Permissions</CardTitle>
+              <Badge className="bg-brand-600 text-white text-[9px] uppercase font-bold">Role-Based Access Control</Badge>
             </div>
-            <CardDescription>Role-Based Access Control and team permission matrix.</CardDescription>
+            <CardDescription>Active workspace role assignment and granted capability matrix.</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -543,34 +570,6 @@ function RbacPermissionsCard({ user, updateUser, activeOrg }) {
             </Badge>
           </div>
           <p className="text-xs text-ink-soft leading-relaxed">{activeRoleObj.desc}</p>
-        </div>
-
-        {/* Interactive Role Switcher */}
-        <div>
-          <label className="text-[11px] font-bold text-ink uppercase tracking-wider block mb-2">
-            Switch RBAC Role Mode (Preview)
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {rolesConfig.map((r) => {
-              const isActive = r.id === currentRole;
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => handleRoleSelect(r.id)}
-                  disabled={updating}
-                  className={`p-2.5 rounded-xl border text-left transition text-xs flex flex-col justify-between ${
-                    isActive
-                      ? "border-brand-500 bg-brand-50/70 text-brand-800 font-bold ring-2 ring-brand-500/20 shadow-xs"
-                      : "border-line bg-surface text-ink-soft hover:border-brand-300"
-                  }`}
-                >
-                  <span className="capitalize text-ink font-bold">{r.id} Mode</span>
-                  <span className="text-[10px] text-ink-soft/80 mt-0.5">{r.title.split("/")[0]}</span>
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Permissions Capabilities List */}

@@ -42,11 +42,37 @@ export const initSocket = (server) => {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error("Authentication error: No token provided"));
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return next(new Error("Authentication error: Invalid or expired token"));
+      }
+
       const user = await User.findById(decoded.id);
       if (!user) return next(new Error("Authentication error: User not found"));
       
+      // Reject deactivated or suspended user accounts
+      if (user.status && user.status !== "active") {
+        return next(new Error("Authentication error: Account is deactivated or suspended"));
+      }
+
+      // Check tokenVersion
+      const currentVersion = user.tokenVersion ?? 0;
+      const tokenVersion = decoded.tv;
+
+      if (tokenVersion !== undefined && tokenVersion !== null) {
+        if (Number(tokenVersion) !== currentVersion) {
+          return next(new Error("Authentication error: Session has been revoked"));
+        }
+      } else {
+        if (currentVersion !== 0) {
+          return next(new Error("Authentication error: Session has been revoked"));
+        }
+      }
+
       socket.user = user;
+      socket.tokenVersion = currentVersion;
       next();
     } catch (err) {
       next(new Error("Authentication error: Invalid token"));
@@ -54,11 +80,31 @@ export const initSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log(`Socket connected: ${socket.id} (User: ${socket.user.email})`);
+    // Helper to verify user status and session validity on events
+    const verifySocketSession = async () => {
+      const freshUser = await User.findById(socket.user._id);
+      if (!freshUser || (freshUser.status && freshUser.status !== "active")) {
+        socket.emit("error", { message: "Account suspended or deactivated" });
+        socket.disconnect(true);
+        return false;
+      }
+      if ((freshUser.tokenVersion ?? 0) !== (socket.tokenVersion ?? 0)) {
+        socket.emit("error", { message: "Session revoked" });
+        socket.disconnect(true);
+        return false;
+      }
+      socket.user = freshUser;
+      return true;
+    };
 
     // Client must explicitly join an organization room
     socket.on("join_org", async (orgId) => {
       try {
+        if (!orgId) return;
+
+        const sessionValid = await verifySocketSession();
+        if (!sessionValid) return;
+
         const membership = await OrganizationMembership.findOne({
           user: socket.user._id,
           organization: orgId,
@@ -72,42 +118,83 @@ export const initSocket = (server) => {
         const roomName = `org_${orgId}`;
         socket.join(roomName);
         socket.join(socket.user._id.toString()); // Personal room for direct notifications
-        console.log(`Socket ${socket.id} joined rooms: ${socket.user._id} & ${roomName}`);
       } catch (err) {
         socket.emit("error", { message: "Failed to join organization room" });
       }
     });
 
     socket.on("team:send_message", async (data) => {
+      if (!data) return;
       const orgId = data.organizationId;
       if (!orgId) return;
 
-      // Re-validate membership before allowing broadcast
+      const sessionValid = await verifySocketSession();
+      if (!sessionValid) return;
+
+      // Re-validate membership and status before allowing broadcast
       const membership = await OrganizationMembership.findOne({
         user: socket.user._id,
         organization: orgId,
         status: "active"
       });
 
-      if (!membership) return;
+      if (!membership) {
+        socket.leave(`org_${orgId}`);
+        return socket.emit("error", { message: "Access denied: Membership inactive or suspended" });
+      }
+
+      const text = typeof data.text === "string" ? data.text.trim() : "";
+      if (!text) return;
 
       const roomName = `org_${orgId}`;
       io.to(roomName).emit("team:new_message", {
         id: Date.now().toString(),
         senderId: socket.user._id.toString(),
-        senderName: data.senderName,
-        senderAvatar: data.senderAvatar,
-        text: data.text,
+        // Derive sender name and avatar from the authenticated user, NEVER from client
+        senderName: socket.user.name || "Team Member",
+        senderAvatar: socket.user.avatar || "",
+        text,
         timestamp: new Date().toISOString(),
       });
     });
 
     socket.on("disconnect", () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      // Clean disconnect
     });
   });
 
   return io;
+};
+
+/**
+ * Disconnect all active sockets for a specific user ID across all connections.
+ * Called upon session revocation or password change.
+ */
+export const disconnectUserSockets = (userId) => {
+  if (!io) return;
+  const targetId = userId.toString();
+  for (const [, socket] of io.sockets.sockets) {
+    if (socket.user && socket.user._id.toString() === targetId) {
+      socket.emit("error", { message: "Session revoked by server" });
+      socket.disconnect(true);
+    }
+  }
+};
+
+/**
+ * Disconnect sockets of a specific user or remove them from an organization's room.
+ * Called when a membership is suspended.
+ */
+export const revokeOrgRoomAccess = (userId, orgId) => {
+  if (!io) return;
+  const targetId = userId.toString();
+  const roomName = `org_${orgId}`;
+  for (const [, socket] of io.sockets.sockets) {
+    if (socket.user && socket.user._id.toString() === targetId) {
+      socket.leave(roomName);
+      socket.emit("error", { message: "Access to workspace room revoked" });
+    }
+  }
 };
 
 export const getIO = () => {

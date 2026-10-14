@@ -2,6 +2,7 @@ import { Router } from "express";
 import { protect, requireOrg } from "../middleware/auth.middleware.js";
 import { requirePermission } from "../middleware/rbac.middleware.js";
 import { PERMISSIONS } from "../config/permissions.js";
+import { ApiError } from "../utils/apiError.js";
 import {
   getOrganization,
   updateOrganization,
@@ -16,6 +17,8 @@ router.use(requireOrg);
 
 router.get("/", getOrganization);
 router.put("/", requirePermission(PERMISSIONS.ORG_UPDATE_SETTINGS), updateOrganization);
-router.delete("/", requirePermission(PERMISSIONS.ORG_DELETE), deleteOrganization);
+router.delete("/", (req, res, next) => {
+  throw new ApiError(403, "Organization deletion is disabled in this phase.");
+});
 
 export default router;

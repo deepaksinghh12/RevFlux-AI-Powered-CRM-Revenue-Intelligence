@@ -24,13 +24,21 @@ export const getOverview = asyncHandler(async (req, res) => {
   const range = req.query.range || "monthly";
   const monthCount = range === "annually" ? 12 : 6;
 
+  const leadFilter = { organization: orgId, isDeleted: { $ne: true } };
+  const contactFilter = { organization: orgId, isDeleted: { $ne: true } };
+  const taskFilter = { organization: orgId, isDeleted: { $ne: true }, status: { $ne: "Completed" } };
+
+  // If rep, restrict data metrics to assigned records
+  if (req.membership && req.membership.role === 'rep') {
+    leadFilter.owner = req.user._id;
+    contactFilter.owner = req.user._id;
+    taskFilter.owner = req.user._id;
+  }
+
   const [leads, contactCount, openTasks] = await Promise.all([
-    Lead.find({ organization: orgId }),
-    Contact.countDocuments({ organization: orgId }),
-    Task.countDocuments({
-      organization: orgId,
-      status: { $ne: "Completed" },
-    }),
+    Lead.find(leadFilter),
+    Contact.countDocuments(contactFilter),
+    Task.countDocuments(taskFilter),
   ]);
 
   const stages = ["New", "Qualified", "Proposal", "Won", "Lost"];

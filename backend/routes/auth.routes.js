@@ -12,6 +12,7 @@ import {
   acceptInvite,
   requestOtp,
   verifyOtp,
+  revokeSessions,
 } from "../controllers/auth.controller.js";
 
 import { protect, requireOrg } from "../middleware/auth.middleware.js";
@@ -30,6 +31,7 @@ router.post("/otp/verify", otpVerifyLimiter, verifyOtp);
 
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
+router.post("/account/revoke-sessions", protect, revokeSessions);
 router.post("/seed-demo", protect, requireOrg, seedDemoData);
 router.post("/create-razorpay-order", protect, requireOrg, createRazorpayOrder);
 router.post("/subscribe", protect, requireOrg, validateBody(authSchemas.subscribe), subscribePlan);

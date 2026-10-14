@@ -12,6 +12,7 @@ export const authApi = {
   subscribe: (data) => api.post("/auth/subscribe", data),
   requestOtp: (data) => api.post("/auth/otp/request", data),
   verifyOtp: (data) => api.post("/auth/otp/verify", data),
+  revokeSessions: (data) => api.post("/auth/account/revoke-sessions", data),
 };
 
 /* ── Leads ──────────────────────────────────────────────────────────── */

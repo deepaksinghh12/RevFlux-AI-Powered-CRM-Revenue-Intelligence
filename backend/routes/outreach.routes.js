@@ -12,11 +12,14 @@ import {
   dismissQueueItem,
 } from "../controllers/outreach.controller.js";
 import { protect, requireOrg } from "../middleware/auth.middleware.js";
+import { requirePermission } from "../middleware/rbac.middleware.js";
+import { PERMISSIONS } from "../config/permissions.js";
 
 const router = express.Router();
 
 router.use(protect);
 router.use(requireOrg);
+router.use(requirePermission(PERMISSIONS.OUTREACH_MANAGE));
 
 // Template routes
 router.get("/templates", getTemplates);

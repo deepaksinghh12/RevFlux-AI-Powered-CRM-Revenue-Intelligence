@@ -59,6 +59,17 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "deactivated", "suspended"],
+      default: "active",
+    },
   },
   {
     timestamps: true,
