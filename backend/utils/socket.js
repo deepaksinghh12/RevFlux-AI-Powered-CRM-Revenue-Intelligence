@@ -197,6 +197,23 @@ export const revokeOrgRoomAccess = (userId, orgId) => {
   }
 };
 
+/**
+ * Emit an event to a user's connected socket(s) notifying them that their
+ * role or permissions in an organization have changed, triggering a live refresh.
+ */
+export const notifyUserPermissionsChanged = (userId, orgId, changes = {}) => {
+  if (!io) return;
+  const targetId = userId.toString();
+  for (const [, socket] of io.sockets.sockets) {
+    if (socket.user && socket.user._id.toString() === targetId) {
+      socket.emit("permissions:updated", {
+        organizationId: orgId.toString(),
+        ...changes,
+      });
+    }
+  }
+};
+
 export const getIO = () => {
   if (!io) {
     throw new Error("Socket.io not initialized!");

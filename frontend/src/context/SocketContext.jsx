@@ -8,7 +8,7 @@ const SocketContext = createContext(null);
 export const useSocket = () => useContext(SocketContext);
 
 export function SocketProvider({ children }) {
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -37,12 +37,22 @@ export function SocketProvider({ children }) {
       setUnreadCount((c) => c + 1);
     });
 
+    // Handle real-time permission or role changes
+    s.on("permissions:updated", (data) => {
+      toast.info("Permissions Updated", {
+        description: "Your workspace role or permissions were updated by an administrator.",
+      });
+      if (typeof refreshSession === "function") {
+        refreshSession();
+      }
+    });
+
     setSocket(s);
 
     return () => {
       s.disconnect();
     };
-  }, [user]);
+  }, [user, refreshSession]);
 
   const clearUnread = () => setUnreadCount(0);
 

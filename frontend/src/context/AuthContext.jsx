@@ -125,9 +125,21 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await authApi.me();
+      if (res && res.user) {
+        setUser(res.user);
+        initActiveOrg(res.user);
+      }
+    } catch (err) {
+      console.error("Failed to refresh user session:", err);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser, otpLogin }}
+      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser, refreshSession, otpLogin }}
     >
       {children}
     </AuthContext.Provider>

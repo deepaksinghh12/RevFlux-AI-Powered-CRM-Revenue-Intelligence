@@ -93,6 +93,7 @@ export const teamApi = {
   inviteMember: (data) => api.post("/team/invite", data),
   updateRole: (userId, data) => api.put(`/team/${userId}/role`, data),
   updatePermissions: (userId, data) => api.put(`/team/${userId}/permissions`, data),
+  toggleStatus: (userId, data) => api.put(`/team/${userId}/status`, data),
   removeMember: (userId) => api.delete(`/team/${userId}`),
 };
 

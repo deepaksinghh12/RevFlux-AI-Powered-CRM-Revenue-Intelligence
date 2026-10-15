@@ -8,6 +8,8 @@ import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import logger from "../config/logger.js";
 import { PERMISSIONS } from "../config/permissions.js";
 import { computeEffectivePermissions, hasEffectivePermission } from "../middleware/rbac.middleware.js";
+import { revokeOrgRoomAccess, notifyUserPermissionsChanged } from "../utils/socket.js";
+import { logActivity } from "../services/activity.service.js";
 
 // ===============================
 // GET TEAM MEMBERS
@@ -213,8 +215,28 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
     }
   }
 
+  const oldRole = membership.role;
   membership.role = role;
   await membership.save();
+
+  // Log activity
+  logActivity({
+    organization: orgId,
+    user: req.user._id,
+    action: "MEMBER_ROLE_CHANGED",
+    entityType: "OrganizationMembership",
+    entityId: membership._id,
+    details: {
+      targetUserId: userId,
+      targetEmail: membership.user?.email,
+      targetName: membership.user?.name,
+      oldRole,
+      newRole: role,
+    },
+  });
+
+  // Notify target user's active sockets in real-time
+  notifyUserPermissionsChanged(userId, orgId, { role });
 
   res.json({
     success: true,
@@ -222,7 +244,66 @@ export const updateMemberRole = asyncHandler(async (req, res) => {
   });
 });
 
-import { revokeOrgRoomAccess } from "../utils/socket.js";
+// ===============================
+// TOGGLE MEMBER STATUS (SUSPEND / REACTIVATE)
+// ===============================
+export const toggleMemberStatus = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { status } = req.body;
+  const orgId = req.organization._id;
+
+  if (!["active", "suspended"].includes(status)) {
+    throw new ApiError(400, "Status must be 'active' or 'suspended'");
+  }
+
+  if (userId === req.user._id.toString()) {
+    throw new ApiError(400, "You cannot suspend your own membership");
+  }
+
+  const membership = await OrganizationMembership.findOne({
+    user: userId,
+    organization: orgId,
+  }).populate("user", "name email");
+
+  if (!membership) {
+    throw new ApiError(404, "Team member not found in this workspace");
+  }
+
+  if (membership.role === "owner") {
+    throw new ApiError(400, "Cannot suspend the workspace owner");
+  }
+
+  const oldStatus = membership.status;
+  membership.status = status;
+  await membership.save();
+
+  if (status === "suspended") {
+    revokeOrgRoomAccess(userId, orgId);
+  } else {
+    notifyUserPermissionsChanged(userId, orgId, { status });
+  }
+
+  logActivity({
+    organization: orgId,
+    user: req.user._id,
+    action: "MEMBER_STATUS_CHANGED",
+    entityType: "OrganizationMembership",
+    entityId: membership._id,
+    details: {
+      targetUserId: userId,
+      targetEmail: membership.user?.email,
+      targetName: membership.user?.name,
+      oldStatus,
+      newStatus: status,
+    },
+  });
+
+  res.json({
+    success: true,
+    message: `${status === "active" ? "Reactivated" : "Suspended"} ${membership.user?.name || membership.user?.email}`,
+    status: membership.status,
+  });
+});
 
 // ===============================
 // REMOVE TEAM MEMBER
@@ -238,7 +319,7 @@ export const removeTeamMember = asyncHandler(async (req, res) => {
   const membership = await OrganizationMembership.findOne({
     user: userId,
     organization: orgId,
-  }).populate("user", "name");
+  }).populate("user", "name email");
 
   if (!membership) {
     throw new ApiError(404, "Team member not found in this workspace");
@@ -253,6 +334,20 @@ export const removeTeamMember = asyncHandler(async (req, res) => {
 
   // Revoke organization room access from any active socket connected by this user
   revokeOrgRoomAccess(userId, orgId);
+
+  logActivity({
+    organization: orgId,
+    user: req.user._id,
+    action: "MEMBER_REMOVED",
+    entityType: "OrganizationMembership",
+    entityId: membership._id,
+    details: {
+      targetUserId: userId,
+      targetEmail: membership.user?.email,
+      targetName: membership.user?.name,
+      role: membership.role,
+    },
+  });
 
   res.json({
     success: true,
@@ -312,6 +407,26 @@ export const updateMemberPermissions = asyncHandler(async (req, res) => {
   }));
 
   await membership.save();
+
+  logActivity({
+    organization: orgId,
+    user: req.user._id,
+    action: "MEMBER_PERMISSIONS_CHANGED",
+    entityType: "OrganizationMembership",
+    entityId: membership._id,
+    details: {
+      targetUserId: userId,
+      targetEmail: membership.user?.email,
+      targetName: membership.user?.name,
+      customPermissionsCount: membership.customPermissions.length,
+    },
+  });
+
+  // Notify target user real-time
+  notifyUserPermissionsChanged(userId, orgId, {
+    customPermissions: membership.customPermissions,
+    effectivePermissions: computeEffectivePermissions(membership),
+  });
 
   res.json({
     success: true,

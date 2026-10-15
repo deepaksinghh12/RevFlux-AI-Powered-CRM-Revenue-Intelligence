@@ -29,9 +29,12 @@ const activityLogSchema = new mongoose.Schema(
         "TASK_CREATED",
         "TASK_COMPLETED",
         "EMAIL_SENT",
-        "AI_DRAFT_GENERATED",
         "CONTACT_CREATED",
-        "USER_INVITED"
+        "USER_INVITED",
+        "MEMBER_ROLE_CHANGED",
+        "MEMBER_STATUS_CHANGED",
+        "MEMBER_REMOVED",
+        "MEMBER_PERMISSIONS_CHANGED"
       ],
       index: true,
     },

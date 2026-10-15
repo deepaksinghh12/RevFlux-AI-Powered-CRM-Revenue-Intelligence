@@ -770,4 +770,82 @@ describe("RevFlux — Critical Authorization Remediation Suite", () => {
       assert.strictEqual(repRes.status, 403);
     });
   });
+
+  // 13. Advanced Team Administration & Status Toggling
+  describe("13. Advanced Team Administration & Status Toggling", () => {
+    it("should allow admin/owner to suspend a member and revoke room access", async () => {
+      const org = await Organization.create({ name: "Suspend Org" });
+      const admin = await User.create({ name: "Admin Sus", email: "adminsus@corp.com", password: "password123" });
+      const rep = await User.create({ name: "Rep Sus", email: "repsus@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: admin._id, organization: org._id, role: "admin", status: "active" });
+      const repMembership = await OrganizationMembership.create({ user: rep._id, organization: org._id, role: "rep", status: "active" });
+
+      const adminToken = makeToken(admin._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/team/${rep._id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({ status: "suspended" }),
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.status, "suspended");
+
+      // Verify DB status
+      const updated = await OrganizationMembership.findById(repMembership._id);
+      assert.strictEqual(updated.status, "suspended");
+
+      // Verify audit log created
+      const audit = await ActivityLog.findOne({ organization: org._id, action: "MEMBER_STATUS_CHANGED" });
+      assert.ok(audit);
+      assert.strictEqual(audit.details.newStatus, "suspended");
+    });
+
+    it("should prevent a user from suspending themselves", async () => {
+      const org = await Organization.create({ name: "Self Suspend Org" });
+      const admin = await User.create({ name: "Admin Self", email: "adminself@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: admin._id, organization: org._id, role: "admin", status: "active" });
+
+      const adminToken = makeToken(admin._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/team/${admin._id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({ status: "suspended" }),
+      });
+
+      assert.strictEqual(res.status, 400);
+    });
+
+    it("should prevent suspending the workspace owner", async () => {
+      const org = await Organization.create({ name: "Owner Suspend Org" });
+      const owner = await User.create({ name: "Owner Target", email: "ownertarget@corp.com", password: "password123" });
+      const admin = await User.create({ name: "Admin Attacker", email: "adminattack@corp.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: owner._id, organization: org._id, role: "owner", status: "active" });
+      await OrganizationMembership.create({ user: admin._id, organization: org._id, role: "admin", status: "active" });
+
+      const adminToken = makeToken(admin._id, 0);
+      const res = await fetch(`http://localhost:${port}/api/team/${owner._id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({ status: "suspended" }),
+      });
+
+      assert.strictEqual(res.status, 400);
+    });
+  });
 });
