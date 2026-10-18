@@ -8,6 +8,24 @@ export const createRateLimiter = ({
   message = "Too many requests, please try again later.",
 }) => {
   const ipStore = new Map();
+
+  // Periodic cleanup interval to prevent unbounded memory growth
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, timestamps] of ipStore.entries()) {
+      const active = timestamps.filter((t) => now - t < windowMs);
+      if (active.length === 0) {
+        ipStore.delete(ip);
+      } else {
+        ipStore.set(ip, active);
+      }
+    }
+  }, Math.max(windowMs, 60000));
+
+  if (cleanupTimer.unref) {
+    cleanupTimer.unref();
+  }
+
   return (req, res, next) => {
     const ip =
       req.ip ||

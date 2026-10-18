@@ -220,14 +220,10 @@ function BillingCard({ user, activeOrg }) {
     leadsApi
       .list({ limit: 1 })
       .then((res) => {
-        if (res?.pagination?.total !== undefined) {
-          setLeadCount(res.pagination.total);
-        } else if (Array.isArray(res?.data)) {
-          setLeadCount(res.data.length);
-        }
+        setLeadCount(res?.count ?? (Array.isArray(res?.leads) ? res.leads.length : 0));
       })
       .catch(() => {});
-  }, []);
+  }, [activeOrg?.id]);
 
   const plan = activeOrg?.plan || "free";
   const limit = activeOrg?.leadLimit || (plan === "free" ? 50 : plan === "growth" ? 500 : 10000);
@@ -289,9 +285,9 @@ function BillingCard({ user, activeOrg }) {
                 style={{ width: `${usagePct}%` }}
               />
             </div>
-            {user?.lastPaymentId && (
+            {(activeOrg?.lastPaymentId || user?.lastPaymentId) && (
               <div className="pt-2 flex items-center justify-between text-[11px] text-ink-soft border-t border-line/50 mt-2">
-                <span>Last Razorpay Payment ID: <code className="font-mono text-ink font-semibold">{user.lastPaymentId}</code></span>
+                <span>Last Razorpay Payment ID: <code className="font-mono text-ink font-semibold">{activeOrg?.lastPaymentId || user?.lastPaymentId}</code></span>
                 <span className="text-emerald-700 font-medium">Verified SSL Transaction</span>
               </div>
             )}

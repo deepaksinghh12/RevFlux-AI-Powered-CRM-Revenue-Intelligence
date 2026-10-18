@@ -11,6 +11,7 @@ import authRoutes from "../routes/auth.routes.js";
 import aiRoutes from "../routes/ai.routes.js";
 import captureRoutes from "../routes/capture.routes.js";
 import leadRoutes from "../routes/lead.routes.js";
+import outreachRoutes from "../routes/outreach.routes.js";
 
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
@@ -18,6 +19,8 @@ import OrganizationMembership from "../models/OrganizationMembership.js";
 import Lead from "../models/Lead.js";
 import Task from "../models/Task.js";
 import CaptureForm from "../models/CaptureForm.js";
+import { OutreachSequence, OutreachQueue } from "../models/OutreachSequence.js";
+import { triggerCadenceForLead } from "../controllers/outreach.controller.js";
 
 import { initSocket } from "../utils/socket.js";
 import { errorHandler } from "../middleware/error.middleware.js";
@@ -60,6 +63,7 @@ before(async () => {
   app.use("/api/ai", aiRoutes);
   app.use("/api/capture", captureRoutes);
   app.use("/api/leads", leadRoutes);
+  app.use("/api/outreach", outreachRoutes);
   app.use(errorHandler);
 
   httpServer = createServer(app);
@@ -296,6 +300,144 @@ describe("Phase B1 Critical Security Fixes", () => {
       assert.strictEqual(res.status, 403);
       const data = await res.json();
       assert.match(data.message, /Access Denied/);
+    });
+  });
+
+  describe("Remediation & Stabilization Verification (Phases 1-4)", () => {
+    it("should allow subscribing to the 'business' plan via POST /api/auth/subscribe", async () => {
+      const owner = await User.create({ name: "Owner", email: "owner_plan@example.com", password: "password123" });
+      const org = await Organization.create({ name: "Biz Org", plan: "free" });
+      await OrganizationMembership.create({ user: owner._id, organization: org._id, role: "owner", status: "active" });
+
+      const token = generateTestToken(owner._id);
+      const res = await fetch(`http://localhost:${port}/api/auth/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          plan: "business",
+          paymentId: "demo_pay_business_123",
+        }),
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.success, true);
+      assert.strictEqual(data.plan, "business");
+
+      const updatedOrg = await Organization.findById(org._id);
+      assert.strictEqual(updatedOrg.plan, "business");
+      assert.strictEqual(updatedOrg.lastPaymentId, "demo_pay_business_123");
+    });
+
+    it("should allow Manager or Owner to call POST /api/ai/lead-summary on a rep-owned lead", async () => {
+      const org = await Organization.create({ name: "AI Org" });
+      const manager = await User.create({ name: "AI Manager", email: "mgr_ai@example.com", password: "password123" });
+      const rep = await User.create({ name: "AI Rep", email: "rep_ai@example.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: manager._id, organization: org._id, role: "manager", status: "active" });
+      await OrganizationMembership.create({ user: rep._id, organization: org._id, role: "rep", status: "active" });
+
+      const repLead = await Lead.create({
+        organization: org._id,
+        owner: rep._id,
+        name: "Enterprise Prospect",
+        company: "MegaCorp",
+        status: "Qualified",
+        value: 50000,
+      });
+
+      const token = generateTestToken(manager._id);
+      const res = await fetch(`http://localhost:${port}/api/ai/lead-summary`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({ leadId: repLead._id.toString() }),
+      });
+
+      assert.strictEqual(res.status, 200);
+      const data = await res.json();
+      assert.strictEqual(data.success, true);
+      assert.ok(typeof data.riskScore === "number");
+      assert.ok(typeof data.nextBestAction === "string");
+    });
+
+    it("should block a rep from reordering another rep's lead", async () => {
+      const org = await Organization.create({ name: "Reorder Org" });
+      const rep1 = await User.create({ name: "Rep 1", email: "rep1_reorder@example.com", password: "password123" });
+      const rep2 = await User.create({ name: "Rep 2", email: "rep2_reorder@example.com", password: "password123" });
+
+      await OrganizationMembership.create({ user: rep1._id, organization: org._id, role: "rep", status: "active" });
+      await OrganizationMembership.create({ user: rep2._id, organization: org._id, role: "rep", status: "active" });
+
+      const lead2 = await Lead.create({
+        organization: org._id,
+        owner: rep2._id,
+        name: "Rep2 Deal",
+        status: "New",
+        order: 0,
+      });
+
+      const token = generateTestToken(rep1._id);
+      const res = await fetch(`http://localhost:${port}/api/leads/reorder`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "X-Organization-Id": org._id.toString(),
+        },
+        body: JSON.stringify({
+          updates: [{ id: lead2._id.toString(), status: "Won", order: 99 }],
+        }),
+      });
+
+      assert.strictEqual(res.status, 200);
+
+      // Verify that rep2's lead was not mutated by rep1
+      const unchangedLead = await Lead.findById(lead2._id);
+      assert.strictEqual(unchangedLead.status, "New");
+      assert.strictEqual(unchangedLead.order, 0);
+    });
+
+    it("should create an OutreachQueue item with organization populated when cadence is triggered", async () => {
+      const org = await Organization.create({ name: "Cadence Org" });
+      const owner = await User.create({ name: "Cadence Owner", email: "cadence_owner@example.com", password: "password123" });
+      await OrganizationMembership.create({ user: owner._id, organization: org._id, role: "owner", status: "active" });
+
+      const seq = await OutreachSequence.create({
+        organization: org._id,
+        owner: owner._id,
+        name: "Proposal Cadence",
+        triggerType: "stage_change",
+        triggerStage: "Proposal",
+        isActive: true,
+      });
+
+      const lead = await Lead.create({
+        organization: org._id,
+        owner: owner._id,
+        name: "Stage Change Lead",
+        company: "Beta Inc",
+        status: "Proposal",
+      });
+
+      await triggerCadenceForLead({
+        userId: owner._id,
+        lead,
+        triggerType: "stage_change",
+        newStage: "Proposal",
+      });
+
+      const queueItem = await OutreachQueue.findOne({ lead: lead._id, sequence: seq._id });
+      assert.ok(queueItem, "OutreachQueue item should be created");
+      assert.strictEqual(queueItem.organization.toString(), org._id.toString(), "organization must be populated");
+      assert.strictEqual(queueItem.status, "pending_review");
     });
   });
 

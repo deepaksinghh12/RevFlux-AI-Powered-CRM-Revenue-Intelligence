@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import Lead from "../models/Lead.js";
+import { triggerCadenceForLead } from "../controllers/outreach.controller.js";
 
 // Run every night at midnight: "0 0 * * *"
 export const startAutoScoringJob = () => {
@@ -10,10 +11,16 @@ export const startAutoScoringJob = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Find leads that haven't been updated in 30 days and aren't Won/Lost
+      // Find leads that haven't been updated in 30 days, aren't Won/Lost, and aren't soft-deleted
       const staleLeads = await Lead.find({
         updatedAt: { $lt: thirtyDaysAgo },
         status: { $nin: ["Won", "Lost"] },
+        isDeleted: { $ne: true },
+        $or: [
+          { lastAutoScoredAt: { $exists: false } },
+          { lastAutoScoredAt: null },
+          { lastAutoScoredAt: { $lt: thirtyDaysAgo } },
+        ],
       });
 
       if (staleLeads.length === 0) {
@@ -23,23 +30,30 @@ export const startAutoScoringJob = () => {
 
       console.log(`[Cron] Found ${staleLeads.length} stale leads. Processing...`);
 
-      // Bulk update them
+      // Bulk update them without demoting priority or resetting human updatedAt
       const bulkOps = staleLeads.map((lead) => {
         // INCREASE risk score for stale leads (higher = more at risk)
-        // Use nullish coalescing to handle score of 0 correctly
         const currentScore = lead.aiRiskScore ?? 50;
         const newScore = Math.min(100, currentScore + 15);
+
+        // Trigger automated cadence for at-risk lead
+        triggerCadenceForLead({
+          userId: lead.owner,
+          lead,
+          triggerType: "at_risk",
+          riskScore: newScore,
+        }).catch((err) => console.error("[Cron] Failed to trigger cadence for lead:", err));
 
         return {
           updateOne: {
             filter: { _id: lead._id },
             update: {
               $set: {
-                priority: "Low",
                 aiRiskScore: newScore,
-                updatedAt: new Date(), // Prevent re-processing every night
+                lastAutoScoredAt: new Date(),
               },
             },
+            timestamps: false,
           },
         };
       });

@@ -6,7 +6,7 @@ import helmet from "helmet";
 
 import connectDB from "./config/db.js";
 import { notFound, errorHandler } from "./middleware/error.middleware.js";
-import { globalLimiter, authLimiter, aiLimiter } from "./middleware/rateLimiter.js";
+import { globalLimiter } from "./middleware/rateLimiter.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import leadRoutes from "./routes/lead.routes.js";
@@ -43,6 +43,8 @@ const clientUrls = (process.env.CLIENT_URL || "")
 
 const allowedOrigins = [
   ...clientUrls,
+  "https://revflux.deepaksinghdev.in",
+  "https://www.revflux.deepaksinghdev.in",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:3000",
@@ -55,6 +57,7 @@ app.use(
         !origin ||
         allowedOrigins.includes(origin) ||
         (origin && origin.endsWith(".vercel.app")) ||
+        (origin && origin.endsWith(".deepaksinghdev.in")) ||
         process.env.NODE_ENV !== "production"
       ) {
         return callback(null, true);
@@ -73,13 +76,14 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // -------------------- Routes -------------------- //
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
 app.use("/api/organization", organizationRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/tasks", taskRoutes);
-app.use("/api/ai", aiLimiter, aiRoutes);
+app.use("/api/ai", aiRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/capture", captureRoutes);
 app.use("/api/outreach", outreachRoutes);

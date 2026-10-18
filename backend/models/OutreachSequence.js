@@ -64,7 +64,7 @@ const outreachQueueSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
-      // required: true will be enforced post-migration
+      required: true,
       index: true,
     },
     owner: {

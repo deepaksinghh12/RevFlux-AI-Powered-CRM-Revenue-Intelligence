@@ -34,7 +34,7 @@ export const authSchemas = {
 
   subscribe: (data) => {
     const errors = [];
-    const validPlans = ["free", "starter", "growth", "enterprise"];
+    const validPlans = ["free", "starter", "growth", "business"];
     if (!data.plan || !validPlans.includes(data.plan)) {
       errors.push({ field: "plan", message: `Plan must be one of: ${validPlans.join(", ")}` });
     }

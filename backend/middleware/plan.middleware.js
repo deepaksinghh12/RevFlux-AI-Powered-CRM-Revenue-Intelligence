@@ -14,13 +14,16 @@ export const checkLeadLimit = asyncHandler(async (req, res, next) => {
 
   const leadLimit = org.leadLimit ?? 50;
 
-  // Count existing active leads for this organization
-  const currentLeadCount = await Lead.countDocuments({ organization: org._id });
+  // Count existing active leads for this organization (excluding soft-deleted leads)
+  const currentLeadCount = await Lead.countDocuments({
+    organization: org._id,
+    isDeleted: { $ne: true },
+  });
 
   // If bulk import, check incoming batch length
   const incomingBatchSize = Array.isArray(req.body.leads) ? req.body.leads.length : 1;
 
-  if (currentLeadCount + incomingBatchSize > leadLimit && org.plan === "free") {
+  if (currentLeadCount + incomingBatchSize > leadLimit) {
     throw new ApiError(
       402,
       `Lead limit reached (${currentLeadCount}/${leadLimit} leads). Upgrade your RevFlux plan to add more leads.`

@@ -4,6 +4,7 @@ import "../models/Contact.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { logActivity } from "../services/activity.service.js";
+import { escapeRegex } from "../utils/sanitize.js";
 
 export const getNotes = asyncHandler(async (req, res) => {
   const { lead, contact, search } = req.query;
@@ -17,7 +18,7 @@ export const getNotes = asyncHandler(async (req, res) => {
   if (contact) filter.contact = contact;
 
   if (search) {
-    filter.content = new RegExp(search, "i");
+    filter.content = new RegExp(escapeRegex(search.trim()), "i");
   }
 
   const notes = await Note.find(filter)

@@ -4,6 +4,7 @@ import { Task } from "../models/Task.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { logActivity } from "../services/activity.service.js";
+import { escapeRegex } from "../utils/sanitize.js";
 
 // ===============================
 // GET CONTACTS
@@ -19,7 +20,7 @@ export const getContacts = asyncHandler(async (req, res) => {
   if (tag) filter.tags = tag;
 
   if (search) {
-    const rx = new RegExp(search, "i");
+    const rx = new RegExp(escapeRegex(search.trim()), "i");
     filter.$or = [
       { name: rx },
       { email: rx },
@@ -61,7 +62,8 @@ export const getContact = asyncHandler(async (req, res) => {
 });
 
 import OrganizationMembership from "../models/OrganizationMembership.js";
-import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+import { PERMISSIONS } from "../config/permissions.js";
+import { hasEffectivePermission } from "../middleware/rbac.middleware.js";
 
 // ===============================
 // CREATE CONTACT
@@ -77,9 +79,7 @@ export const createContact = asyncHandler(async (req, res) => {
   let finalOwnerId = req.user._id;
 
   if (targetOwnerId && targetOwnerId.toString() !== req.user._id.toString()) {
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");
@@ -143,9 +143,7 @@ export const updateContact = asyncHandler(async (req, res) => {
 
   const newOwner = req.body.assignedTo || req.body.owner;
   if (newOwner && newOwner.toString() !== contact.owner.toString()) {
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");

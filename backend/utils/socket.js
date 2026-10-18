@@ -24,6 +24,8 @@ export const initSocket = (server) => {
 
   const allowedOrigins = [
     ...clientUrls,
+    "https://revflux.deepaksinghdev.in",
+    "https://www.revflux.deepaksinghdev.in",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
@@ -36,6 +38,7 @@ export const initSocket = (server) => {
           !origin ||
           allowedOrigins.includes(origin) ||
           (origin && origin.endsWith(".vercel.app")) ||
+          (origin && origin.endsWith(".deepaksinghdev.in")) ||
           process.env.NODE_ENV !== "production"
         ) {
           return callback(null, true);
