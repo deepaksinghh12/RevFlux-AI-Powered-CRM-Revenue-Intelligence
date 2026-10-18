@@ -24,6 +24,8 @@ import Download from "./pages/Download";
 import GenericPage from "./pages/GenericPage";
 import { useAuth } from "./context/AuthContext";
 import AcceptInvite from "./pages/auth/AcceptInvite";
+import QAWorkspace from "./pages/QAWorkspace";
+import Chat from "./pages/Chat";
 
 export default function App() {
   const { user } = useAuth();
@@ -56,6 +58,26 @@ export default function App() {
         }
       />
 
+      {/* Stand-alone QA Workspace Route: Accessible both unauthenticated and authenticated */}
+      <Route
+        path="/qa-workspace"
+        element={
+          user ? (
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          ) : (
+            <div className="min-h-screen bg-canvas p-4 md:p-8">
+              <div className="max-w-7xl mx-auto">
+                <QAWorkspace />
+              </div>
+            </div>
+          )
+        }
+      >
+        <Route index element={<QAWorkspace />} />
+      </Route>
+
       {/* Root Route: If logged in -> Dashboard inside AppLayout, if not -> Landing page */}
       <Route
         path="/"
@@ -79,7 +101,9 @@ export default function App() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="team" element={<Team />} />
+        <Route path="chat" element={<Chat />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="qa-workspace" element={<QAWorkspace />} />
       </Route>
 
       {/* Fallback */}

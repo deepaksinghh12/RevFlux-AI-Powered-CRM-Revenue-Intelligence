@@ -27,7 +27,7 @@ export const getOrganization = asyncHandler(async (req, res) => {
 // UPDATE ORGANIZATION
 // ===============================
 export const updateOrganization = asyncHandler(async (req, res) => {
-  const { name } = req.body;
+  const { name, code } = req.body;
   const org = await Organization.findById(req.organization._id);
 
   if (!org) {
@@ -35,6 +35,38 @@ export const updateOrganization = asyncHandler(async (req, res) => {
   }
 
   if (name) org.name = name;
+
+  if (code && typeof code === "string") {
+    const normalizedCode = code.toUpperCase().trim();
+    if (org.code && normalizedCode !== org.code) {
+      // Check if memberships with assigned memberId already exist
+      const hasAssignedMembers = await OrganizationMembership.exists({
+        organization: org._id,
+        memberId: { $exists: true, $ne: null },
+      });
+
+      if (hasAssignedMembers) {
+        throw new ApiError(400, "Cannot change organization code after member IDs have been assigned");
+      }
+    }
+
+    if (!/^[A-Z0-9]{2,10}$/.test(normalizedCode)) {
+      throw new ApiError(400, "Organization code must be 2 to 10 uppercase alphanumeric characters");
+    }
+
+    // Check uniqueness across other organizations
+    const duplicate = await Organization.exists({
+      code: normalizedCode,
+      _id: { $ne: org._id },
+    });
+
+    if (duplicate) {
+      throw new ApiError(409, `Organization code '${normalizedCode}' is already in use by another workspace`);
+    }
+
+    org.code = normalizedCode;
+  }
+
   await org.save();
 
   res.json({ success: true, organization: org });
@@ -100,6 +132,24 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
       .lean(),
   ]);
 
+  // Look up member IDs for all user IDs present in this organization
+  const userIds = [
+    ...new Set(
+      logs
+        .map((l) => l.user && (l.user._id || l.user).toString())
+        .filter(Boolean)
+    ),
+  ];
+
+  const memberships = await OrganizationMembership.find({
+    organization: orgId,
+    user: { $in: userIds },
+  }).select("user memberId");
+
+  const memberIdMap = new Map(
+    memberships.map((m) => [m.user.toString(), m.memberId])
+  );
+
   // Sanitize details: strip any password, token, secret or sensitive hashes
   const sanitizedLogs = logs.map((log) => {
     let sanitizedDetails = {};
@@ -123,6 +173,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
         name: log.user.name,
         email: log.user.email,
         avatar: log.user.avatar || "",
+        memberId: memberIdMap.get(log.user._id.toString()) || null,
       } : null,
       details: sanitizedDetails,
       createdAt: log.createdAt,

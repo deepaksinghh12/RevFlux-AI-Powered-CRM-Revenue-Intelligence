@@ -1,0 +1,34 @@
+{
+  "lastUpdated": "2026-10-17T19:00:39.708Z",
+  "workflows": {
+    "workflowA": {
+      "status": "PASSED",
+      "notes": ""
+    },
+    "workflowB": {
+      "status": "NOT_TESTED",
+      "notes": ""
+    },
+    "workflowC": {
+      "status": "NOT_TESTED",
+      "notes": ""
+    },
+    "workflowD": {
+      "status": "NOT_TESTED",
+      "notes": ""
+    },
+    "workflowE": {
+      "status": "NOT_TESTED",
+      "notes": ""
+    },
+    "workflowF": {
+      "status": "PASSED",
+      "notes": ""
+    },
+    "workflowG": {
+      "status": "PASSED",
+      "notes": ""
+    }
+  },
+  "lastUpdatedBy": "qa.owner@revflux.local"
+}

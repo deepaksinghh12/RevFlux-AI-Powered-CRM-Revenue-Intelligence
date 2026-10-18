@@ -21,6 +21,7 @@ import {
   Download,
   Activity,
   UserCheck,
+  Copy,
   Settings as SettingsIcon,
 } from "lucide-react";
 
@@ -120,6 +121,23 @@ function ProfileCard({ user, updateUser, activeOrg }) {
                 <span>•</span>
                 <span>{user?.department || "Revenue Operations"}</span>
               </div>
+              {activeOrg?.memberId && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-[10px] text-ink-soft">Member ID:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(activeOrg.memberId);
+                      toast.success(`Copied ${activeOrg.memberId} to clipboard`);
+                    }}
+                    className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/60 rounded px-1.5 py-0.5 transition-colors cursor-pointer"
+                    title="Click to copy Member ID"
+                  >
+                    <span>{activeOrg.memberId}</span>
+                    <Copy className="h-2.5 w-2.5 opacity-60" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-semibold text-[10px]">
@@ -734,9 +752,16 @@ function AuditStreamCard({ user, logout, activeOrg }) {
                   <span className="text-[10px] text-ink-soft">{shortDate(log.createdAt)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-ink-soft">
-                  <span>
-                    By: <strong className="text-ink">{log.user?.name || log.user?.email || "System"}</strong>
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span>
+                      By: <strong className="text-ink">{log.user?.name || log.user?.email || "System"}</strong>
+                    </span>
+                    {log.user?.memberId && (
+                      <span className="font-mono text-[9px] font-bold text-brand-700 bg-brand-50 border border-brand-200/60 rounded px-1 py-0.5">
+                        {log.user.memberId}
+                      </span>
+                    )}
+                  </div>
                   <span className="font-mono text-[10px] text-ink-soft/80">
                     {log.entityType}
                   </span>

@@ -103,3 +103,17 @@ export const orgApi = {
   updateOrganization: (data) => api.put("/organization", data),
   getAuditLogs: (params) => api.get("/organization/audit-logs", { params }),
 };
+
+/* ── Team Chat ──────────────────────────────────────────────────────── */
+export const chatApi = {
+  getConversations: () => api.get("/chat/conversations"),
+  getOrCreateDirect: (recipientId) => api.post("/chat/conversations/direct", { recipientId }),
+  createGroup: (data) => api.post("/chat/conversations/group", data),
+  getMessages: (conversationId, params) => api.get(`/chat/conversations/${conversationId}/messages`, { params }),
+  sendMessage: (conversationId, data) => api.post(`/chat/conversations/${conversationId}/messages`, data),
+  markAsRead: (conversationId) => api.patch(`/chat/conversations/${conversationId}/read`),
+  markAsDelivered: (conversationId, messageIds) =>
+    api.post(`/chat/conversations/${conversationId}/delivered`, { messageIds }),
+  updatePreferences: (data) => api.patch("/chat/preferences", data),
+  getTeammates: () => api.get("/chat/teammates"),
+};
