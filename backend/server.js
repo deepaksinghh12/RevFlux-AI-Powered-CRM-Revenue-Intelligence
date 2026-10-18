@@ -19,6 +19,8 @@ import outreachRoutes from "./routes/outreach.routes.js";
 import teamRoutes from "./routes/team.routes.js";
 import organizationRoutes from "./routes/organization.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
+import qaRoutes from "./routes/qa.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 import { startAutoScoringJob } from "./jobs/autoScoring.js";
 
 const app = express();
@@ -82,6 +84,8 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/capture", captureRoutes);
 app.use("/api/outreach", outreachRoutes);
 app.use("/api/team", teamRoutes);
+app.use("/api/qa", qaRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

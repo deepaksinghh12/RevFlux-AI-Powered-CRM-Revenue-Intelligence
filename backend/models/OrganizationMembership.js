@@ -44,6 +44,14 @@ const organizationMembershipSchema = new mongoose.Schema(
         },
       },
     ],
+    memberSeq: {
+      type: Number,
+    },
+    memberId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
   },
   {
     timestamps: true,
@@ -60,5 +68,25 @@ organizationMembershipSchema.index(
   { inviteEmail: 1, organization: 1 },
   { unique: true, partialFilterExpression: { inviteEmail: { $exists: true, $type: "string" } } }
 );
+
+organizationMembershipSchema.index(
+  { organization: 1, memberSeq: 1 },
+  { unique: true, partialFilterExpression: { memberSeq: { $type: "number" } } }
+);
+
+organizationMembershipSchema.index(
+  { organization: 1, memberId: 1 },
+  { unique: true, partialFilterExpression: { memberId: { $type: "string" } } }
+);
+
+// Atomic allocation hook on validation if memberId is not yet assigned
+organizationMembershipSchema.pre("validate", async function () {
+  if (!this.memberId && this.organization) {
+    const { allocateMemberId } = await import("../utils/memberId.js");
+    const allocated = await allocateMemberId(this.organization);
+    this.memberSeq = allocated.memberSeq;
+    this.memberId = allocated.memberId;
+  }
+});
 
 export default mongoose.model("OrganizationMembership", organizationMembershipSchema);

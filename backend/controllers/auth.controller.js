@@ -35,6 +35,9 @@ const toClientUser = (user, memberships = []) => ({
   workspaces: memberships.map(m => ({
     id: m.organization._id,
     name: m.organization.name,
+    code: m.organization.code || null,
+    memberId: m.memberId || null,
+    membershipId: m._id,
     role: m.role,
     status: m.status,
     plan: m.organization.plan,

@@ -33,7 +33,24 @@ process.env.OPENROUTER_API_KEY = "test"; // Mock
 
 before(async () => {
   const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/revflux_dev";
-  const testUri = mongoUri.replace(/\/[a-zA-Z0-9_-]+(\?|$)/, "/revflux_test_security$1");
+  const lower = mongoUri.toLowerCase();
+  const env = (process.env.NODE_ENV || "").toLowerCase();
+  if (lower.includes("prod") || env.includes("prod")) {
+    throw new Error("Cannot run test against production DB");
+  }
+  let testUri;
+  if (mongoUri.includes("/?")) {
+    testUri = mongoUri.replace("/?", "/revflux_test_security?");
+  } else if (/\/[a-zA-Z0-9_-]+(\?|$)/.test(mongoUri.replace(/:\/\/[^/]+/, "/"))) {
+    testUri = mongoUri.replace(/\/([a-zA-Z0-9_-]+)(\?|$)/, "/revflux_test_security$2");
+  } else if (mongoUri.endsWith("/")) {
+    testUri = `${mongoUri}revflux_test_security`;
+  } else {
+    testUri = `${mongoUri}/revflux_test_security`;
+  }
+  if (!testUri.includes("/revflux_test_security") || testUri === mongoUri) {
+    throw new Error("Test URI isolation failed");
+  }
   await mongoose.connect(testUri);
 
   app = express();

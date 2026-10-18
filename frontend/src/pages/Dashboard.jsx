@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Activity,
   ArrowRight,
+  MessageSquare,
 } from "lucide-react";
 import { AiAttentionCenter } from "../components/dashboard/AiAttentionCenter";
 import { PipelineTrendChart } from "../components/analytics/PipelineTrendChart";
@@ -143,7 +144,17 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className="bg-surface border border-line text-ink-soft">Workspace: {activeOrg?.name}</Badge>
+          <Badge className="bg-surface border border-line text-ink-soft">
+            Workspace: {activeOrg?.name}
+            {activeOrg?.memberId && (
+              <span className="ml-1.5 pl-1.5 border-l border-line font-mono font-bold text-brand-600">
+                {activeOrg.memberId}
+              </span>
+            )}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={() => navigate("/chat")}>
+            <MessageSquare className="h-4 w-4 mr-2 text-brand-600" /> Team Chat
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('open-copilot'))}>
             <Sparkles className="h-4 w-4 mr-2 text-brand-600" /> Ask Copilot
           </Button>

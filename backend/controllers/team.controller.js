@@ -30,6 +30,8 @@ export const getTeamMembers = asyncHandler(async (req, res) => {
         return {
           id: m.user._id,
           membershipId: m._id,
+          memberId: m.memberId || null,
+          memberSeq: m.memberSeq || null,
           name: m.user.name,
           email: m.user.email,
           role: m.role,
@@ -47,6 +49,8 @@ export const getTeamMembers = asyncHandler(async (req, res) => {
         return {
           id: null,
           membershipId: m._id,
+          memberId: m.memberId || null,
+          memberSeq: m.memberSeq || null,
           name: "Pending Invite",
           email: m.inviteEmail,
           role: m.role,

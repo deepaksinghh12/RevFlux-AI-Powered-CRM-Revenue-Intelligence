@@ -9,9 +9,11 @@ import {
   CalendarCheck,
   Mail,
   ShieldCheck,
+  Shield,
   Settings,
   LogOut,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
@@ -26,6 +28,7 @@ const NAV = [
   { to: "/pipeline", label: "Pipeline", icon: KanbanSquare, permission: "leads.read" },
   { to: "/notes", label: "Notes", icon: StickyNote, permission: "notes.read" },
   { to: "/tasks", label: "Follow-ups", icon: CalendarCheck, permission: "tasks.read" },
+  { to: "/chat", label: "Team Chat", icon: MessageSquare },
   { to: "/outreach", label: "AI Outreach", icon: Mail, permission: "outreach.manage" },
   { to: "/team", label: "Team & Roles", icon: ShieldCheck, permission: "team.read" },
 ];
@@ -34,15 +37,6 @@ export function Sidebar({ onNavigate }) {
   const { user, activeOrg, switchOrganization, logout } = useAuth();
   const { hasPermission } = usePermission();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [avatar, setAvatar] = useState(() => localStorage.getItem("revflux_avatar") || "");
-
-  const displayAvatar = avatar || user?.name?.charAt(0) || "U";
-  const DOODLES = ["🐱", "🐶", "🦊", "🐸", "🐻", "🐼", "😎", "🤖"];
-
-  const handleSelectAvatar = (emoji) => {
-    setAvatar(emoji);
-    localStorage.setItem("revflux_avatar", emoji);
-  };
 
   const visibleNav = NAV.filter((item) => !item.permission || hasPermission(item.permission));
 
@@ -77,6 +71,24 @@ export function Sidebar({ onNavigate }) {
             {label}
           </NavLink>
         ))}
+
+        {import.meta.env.DEV && (
+          <NavLink
+            to="/qa-workspace"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-xl px-3.5 py-2 text-xs font-semibold transition mt-3 border border-dashed border-amber-500/30",
+                isActive
+                  ? "bg-amber-500/10 text-amber-700 border-amber-500/50"
+                  : "text-amber-700/80 hover:bg-amber-500/5 hover:text-amber-700"
+              )
+            }
+          >
+            <Shield className="h-4 w-4 text-amber-600" />
+            RBAC QA Lab
+          </NavLink>
+        )}
       </nav>
 
       {/* User Profile / Workspace */}

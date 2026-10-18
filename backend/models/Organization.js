@@ -33,10 +33,37 @@ const organizationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    code: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: [2, "Organization code must be at least 2 characters"],
+      maxlength: [10, "Organization code cannot exceed 10 characters"],
+      match: [/^[A-Z0-9]+$/, "Organization code must be alphanumeric"],
+    },
+    nextMemberSeq: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+organizationSchema.index(
+  { code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: "string" } } }
+);
+
+organizationSchema.pre("validate", async function () {
+  if (this.code) {
+    this.code = this.code.toUpperCase().trim();
+  }
+  if (!this.nextMemberSeq) {
+    this.nextMemberSeq = 1;
+  }
+});
 
 export default mongoose.model("Organization", organizationSchema);

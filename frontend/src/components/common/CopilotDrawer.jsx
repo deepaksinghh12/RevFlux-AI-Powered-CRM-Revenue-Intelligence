@@ -72,15 +72,16 @@ export function CopilotDrawer() {
 
   return (
     <>
-      {/* Floating Trigger */}
+      {/* Floating Trigger: Positioned cleanly above Team Chat floating widget */}
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-pop transition-transform hover:scale-105 active:scale-95",
+          "fixed bottom-22 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-surface border border-brand-200/80 text-brand-600 shadow-md transition-all hover:scale-105 hover:bg-brand-50 active:scale-95 cursor-pointer",
           isOpen && "hidden"
         )}
+        title="Ask AI Copilot"
       >
-        <Sparkles className="h-6 w-6" />
+        <Sparkles className="h-5 w-5" />
       </button>
 
       {/* Backdrop overlay for mobile */}

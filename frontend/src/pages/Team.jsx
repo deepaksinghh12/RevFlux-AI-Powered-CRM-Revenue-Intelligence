@@ -20,6 +20,7 @@ import {
   Ban,
   RotateCcw,
   UserX,
+  Copy,
 } from "lucide-react";
 import {
   Button,
@@ -251,6 +252,7 @@ export default function Team() {
         !search ||
         (m.name && m.name.toLowerCase().includes(q)) ||
         (m.email && m.email.toLowerCase().includes(q)) ||
+        (m.memberId && m.memberId.toLowerCase().includes(q)) ||
         (m.jobTitle && m.jobTitle.toLowerCase().includes(q)) ||
         (m.department && m.department.toLowerCase().includes(q));
 
@@ -535,6 +537,24 @@ export default function Team() {
                         {roleMeta.title}
                       </Badge>
                     </div>
+
+                    {m.memberId && (
+                      <div className="flex items-center justify-between pt-0.5">
+                        <span className="text-[11px] text-ink-soft font-medium">Member ID:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(m.memberId);
+                            toast.success(`Copied ${m.memberId} to clipboard`);
+                          }}
+                          title="Click to copy Member ID"
+                          className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/60 rounded-md px-1.5 py-0.5 transition-colors cursor-pointer"
+                        >
+                          <span>{m.memberId}</span>
+                          <Copy className="h-2.5 w-2.5 opacity-60" />
+                        </button>
+                      </div>
+                    )}
 
                     <div className="rounded-xl border border-line bg-surface-muted/50 p-2 text-xs space-y-1">
                       <p className="font-medium text-ink flex items-center gap-1.5 truncate">
