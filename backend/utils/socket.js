@@ -7,6 +7,7 @@ import OrganizationMembership from "../models/OrganizationMembership.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { notifyChatParticipants } from "../services/chatNotification.service.js";
+import { corsOptions } from "./cors.js";
 
 let io;
 
@@ -17,37 +18,8 @@ const onlineUsers = new Map();
 const messageTimestamps = new Map();
 
 export const initSocket = (server) => {
-  const clientUrls = (process.env.CLIENT_URL || "")
-    .split(",")
-    .map((u) => u.trim())
-    .filter(Boolean);
-
-  const allowedOrigins = [
-    ...clientUrls,
-    "https://revflux.deepaksinghdev.in",
-    "https://www.revflux.deepaksinghdev.in",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-  ];
-
   io = new Server(server, {
-    cors: {
-      origin: (origin, callback) => {
-        if (
-          !origin ||
-          allowedOrigins.includes(origin) ||
-          (origin && origin.endsWith(".vercel.app")) ||
-          (origin && origin.endsWith(".deepaksinghdev.in")) ||
-          process.env.NODE_ENV !== "production"
-        ) {
-          return callback(null, true);
-        }
-        return callback(new Error("Not allowed by CORS"));
-      },
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      credentials: true,
-    },
+    cors: corsOptions,
   });
 
   // Socket Authentication Middleware
@@ -141,6 +113,18 @@ export const initSocket = (server) => {
         }
 
         const roomName = `org_${orgId}`;
+
+        // Leave any previous organization rooms and conversation rooms
+        for (const room of socket.rooms) {
+          if (room.startsWith("org_") && room !== roomName) {
+            socket.leave(room);
+          }
+          if (room.startsWith("chat_conv_")) {
+            socket.leave(room);
+          }
+        }
+
+        socket.currentOrgId = orgId.toString();
         socket.join(roomName);
 
         // Notify organization room about user online presence
@@ -151,6 +135,19 @@ export const initSocket = (server) => {
       } catch (err) {
         socket.emit("error", { message: "Failed to join organization room" });
       }
+    });
+
+    // Client explicitly leaves an organization room (e.g. org switch)
+    socket.on("leave_org", (orgId) => {
+      try {
+        if (!orgId) return;
+        socket.leave(`org_${orgId}`);
+        for (const room of socket.rooms) {
+          if (room.startsWith("chat_conv_")) {
+            socket.leave(room);
+          }
+        }
+      } catch (err) {}
     });
 
     // Query online teammates in current organization
@@ -226,6 +223,14 @@ export const initSocket = (server) => {
         }
 
         const convRoom = `chat_conv_${conversationId}`;
+
+        // Ensure socket only listens to active conversation room
+        for (const room of socket.rooms) {
+          if (room.startsWith("chat_conv_") && room !== convRoom) {
+            socket.leave(room);
+          }
+        }
+
         socket.join(convRoom);
 
         if (typeof callback === "function") {

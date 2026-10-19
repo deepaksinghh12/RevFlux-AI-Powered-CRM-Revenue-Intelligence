@@ -19,6 +19,15 @@ import { chatApi } from "../../lib/services";
 import { Avatar, Spinner, Badge } from "../ui";
 import { cn } from "../../lib/utils";
 
+const getUserId = (u) => {
+  if (!u) return "";
+  if (typeof u === "string") return u;
+  if (u._id) return u._id.toString();
+  if (u.id) return u.id.toString();
+  if (typeof u.toString === "function") return u.toString();
+  return "";
+};
+
 export function TeamChatWidget() {
   const { socket, onlineUserIds } = useSocket();
   const { user, activeOrg } = useAuth();
@@ -40,8 +49,9 @@ export function TeamChatWidget() {
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const widgetRequestIdRef = useRef(0);
 
-  const currentUserId = (user?._id || user?.id || "").toString();
+  const currentUserId = getUserId(user);
 
   // Do not render the floating widget when user is already on the full /chat page
   const isOnChatPage = location.pathname === "/chat";
@@ -90,39 +100,100 @@ export function TeamChatWidget() {
   }, [activeOrg?.id]);
 
   // 3. Load messages for active conversation
-  const loadMessages = useCallback(async (convId) => {
-    if (!convId) return;
-    try {
-      setLoadingMessages(true);
-      setTypingUsers({});
-      const res = await chatApi.getMessages(convId, { limit: 40 });
-      setMessages(res?.messages || []);
-      // Mark as read
-      chatApi.markAsRead(convId).catch(() => {});
-      setConversations((prev) =>
-        prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
-      );
-    } catch (err) {
-      console.error("Failed to load messages for widget:", err);
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, []);
+  const loadMessages = useCallback(
+    async (convId) => {
+      if (!convId) {
+        setMessages([]);
+        setLoadingMessages(false);
+        return;
+      }
+      const currentReqId = ++widgetRequestIdRef.current;
+      try {
+        setLoadingMessages(true);
+        setTypingUsers({});
+        const res = await chatApi.getMessages(convId, { limit: 40 });
+        if (currentReqId !== widgetRequestIdRef.current) return;
+        setMessages(res?.messages || []);
+
+        // Only mark as read if widget is currently open, in chat view, and tab is visible
+        if (isOpen && viewMode === "chat" && document.visibilityState === "visible") {
+          chatApi.markAsRead(convId).catch(() => {});
+          setConversations((prev) =>
+            prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+          );
+        }
+      } catch (err) {
+        if (currentReqId !== widgetRequestIdRef.current) return;
+        console.error("Failed to load messages for widget:", err);
+        setMessages([]);
+      } finally {
+        if (currentReqId === widgetRequestIdRef.current) {
+          setLoadingMessages(false);
+        }
+      }
+    },
+    [isOpen, viewMode]
+  );
 
   // When activeConvId changes, load messages and join socket room
   useEffect(() => {
     if (activeConvId) {
       loadMessages(activeConvId);
-      if (socket && socket.connected) {
-        socket.emit("chat:join_conversation", activeConvId);
-      }
+    } else {
+      setMessages([]);
+      setLoadingMessages(false);
     }
+  }, [activeConvId, loadMessages]);
+
+  // Re-join conversation room on socket connection / reconnection
+  useEffect(() => {
+    if (!socket || !activeConvId) return;
+
+    const handleSocketReconnect = () => {
+      socket.emit("chat:join_conversation", activeConvId);
+      loadMessages(activeConvId);
+    };
+
+    if (socket.connected) {
+      socket.emit("chat:join_conversation", activeConvId);
+    }
+
+    socket.on("connect", handleSocketReconnect);
+
     return () => {
-      if (activeConvId && socket && socket.connected) {
+      socket.off("connect", handleSocketReconnect);
+      if (socket.connected) {
         socket.emit("chat:leave_conversation", activeConvId);
       }
     };
   }, [activeConvId, loadMessages, socket]);
+
+  // Mark conversation read on tab visibility or window focus
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (
+        isOpen &&
+        viewMode === "chat" &&
+        document.visibilityState === "visible" &&
+        activeConvId &&
+        socket
+      ) {
+        socket.emit("chat:mark_read", { conversationId: activeConvId });
+        chatApi.markAsRead(activeConvId).catch(() => {});
+        setConversations((prev) =>
+          prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [isOpen, viewMode, activeConvId, socket]);
 
   // Auto-scroll messages
   useEffect(() => {
@@ -136,8 +207,11 @@ export function TeamChatWidget() {
     if (!socket || isOnChatPage) return;
 
     const handleNewMessage = (msg) => {
-      const senderId = (msg.sender?._id || msg.sender?.id || msg.sender || "").toString();
-      if (senderId !== currentUserId) {
+      const senderId = getUserId(msg.sender);
+      const myId = getUserId(currentUserId);
+
+      // Recipient delivery receipt: only acknowledge if current user is not sender
+      if (senderId && senderId !== myId) {
         socket.emit("chat:message_delivered", {
           conversationId: msg.conversationId,
           messageId: msg.id || msg._id,
@@ -146,10 +220,22 @@ export function TeamChatWidget() {
 
       if (msg.conversationId === activeConvId) {
         setMessages((prev) => {
-          if (prev.some((m) => (m.id || m._id) === (msg.id || msg._id))) return prev;
+          const msgKey = (msg.clientMessageId || msg.id || msg._id || "").toString();
+          if (
+            prev.some(
+              (m) => (m.clientMessageId || m.id || m._id || "").toString() === msgKey
+            )
+          ) {
+            return prev;
+          }
           return [...prev, msg];
         });
-        if (isOpen && viewMode === "chat" && senderId !== currentUserId) {
+        if (
+          isOpen &&
+          viewMode === "chat" &&
+          senderId !== myId &&
+          document.visibilityState === "visible"
+        ) {
           socket.emit("chat:mark_read", { conversationId: activeConvId });
           chatApi.markAsRead(activeConvId).catch(() => {});
         }
@@ -174,7 +260,7 @@ export function TeamChatWidget() {
     };
 
     const handleUserTyping = ({ conversationId, userId, userName, isTyping }) => {
-      if (conversationId !== activeConvId || userId === currentUserId) return;
+      if (conversationId !== activeConvId || getUserId(userId) === getUserId(currentUserId)) return;
       setTypingUsers((prev) => {
         const next = { ...prev };
         if (isTyping) next[userId] = userName;
@@ -190,10 +276,10 @@ export function TeamChatWidget() {
           const mId = (m.id || m._id || "").toString();
           const isTarget =
             (messageIds && messageIds.some((id) => id.toString() === mId)) ||
-            (!messageIds && (m.sender?._id || m.sender?.id || m.sender || "").toString() === currentUserId);
+            (!messageIds && getUserId(m.sender) === getUserId(currentUserId));
           if (isTarget) {
-            const alreadyDelivered = m.deliveredTo?.some(
-              (d) => (d.user?._id || d.user || d).toString() === userId.toString()
+            const alreadyDelivered = (m.deliveredTo || []).some(
+              (d) => getUserId(d.user || d) === getUserId(userId)
             );
             if (!alreadyDelivered) {
               const deliveredTo = [
@@ -212,8 +298,8 @@ export function TeamChatWidget() {
       if (conversationId !== activeConvId) return;
       setMessages((prev) =>
         prev.map((m) => {
-          const alreadyRead = m.readBy?.some(
-            (r) => (r.user?._id || r.user || r).toString() === userId.toString()
+          const alreadyRead = (m.readBy || []).some(
+            (r) => getUserId(r.user || r) === getUserId(userId)
           );
           if (!alreadyRead) {
             return {
@@ -245,7 +331,7 @@ export function TeamChatWidget() {
       socket.off("chat:conversation_updated", handleConversationUpdated);
       socket.off("chat:conversation_created", handleConversationUpdated);
     };
-  }, [socket, activeConvId, currentUserId, isOnChatPage, fetchConversations]);
+  }, [socket, activeConvId, currentUserId, isOpen, viewMode, isOnChatPage, fetchConversations]);
 
   // 5. Send Message Action
   const handleSendMessage = async (e) => {
@@ -650,18 +736,27 @@ export function TeamChatWidget() {
                   </div>
                 ) : (
                   messages.map((m) => {
-                    const senderId = (m.sender?._id || m.sender?.id || m.sender || "").toString();
-                    const isMe = senderId === currentUserId;
+                    const senderId = getUserId(m.sender);
+                    const myId = getUserId(currentUserId);
+                    const isMe = senderId === myId;
                     const isGroup = activeConversation?.type === "group";
-                    const otherParticipants = activeConversation?.participants?.filter(
-                      (p) => (p._id || p.id || p || "").toString() !== currentUserId
-                    ) || [];
+                    const otherParticipants = (activeConversation?.participants || []).filter(
+                      (p) => getUserId(p) !== senderId
+                    );
                     const totalOthers = Math.max(otherParticipants.length, 1);
 
-                    const readCount =
-                      m.readBy?.filter((r) => (r.user?._id || r.user || r || "").toString() !== currentUserId).length || 0;
-                    const deliveredCount =
-                      m.deliveredTo?.filter((d) => (d.user?._id || d.user || d || "").toString() !== currentUserId).length || 0;
+                    // Recipient read & delivery counts MUST NOT count sender
+                    const recipientReads = (m.readBy || []).filter((r) => {
+                      const rId = getUserId(r.user || r);
+                      return rId && rId !== senderId;
+                    });
+                    const readCount = recipientReads.length;
+
+                    const recipientDeliveries = (m.deliveredTo || []).filter((d) => {
+                      const dId = getUserId(d.user || d);
+                      return dId && dId !== senderId;
+                    });
+                    const deliveredCount = recipientDeliveries.length;
 
                     const isAllRead = isGroup ? readCount >= totalOthers : readCount > 0;
                     const isPartiallyRead = isGroup && readCount > 0 && readCount < totalOthers;

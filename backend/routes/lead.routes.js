@@ -35,6 +35,7 @@ router.route("/")
 // Static routes placed before parameterized routes (/:id) to avoid route matching conflicts
 router.post("/assign", requirePermission(PERMISSIONS.LEADS_ASSIGN), assignLeads);
 router.post("/bulk", requirePermission(PERMISSIONS.LEADS_IMPORT), checkLeadLimit, importLeads);
+router.post("/import", requirePermission(PERMISSIONS.LEADS_IMPORT), checkLeadLimit, importLeads);
 router.patch("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);
 router.put("/reorder", requirePermission(PERMISSIONS.LEADS_UPDATE), reorderLeads);
 

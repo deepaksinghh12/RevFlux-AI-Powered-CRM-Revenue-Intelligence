@@ -548,6 +548,25 @@ export const importLeads = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide an array of leads to import.");
   }
 
+  // Quota enforcement: reject batch upfront if it would exceed plan limit
+  const org = req.organization;
+  const isUnlimited = org?.plan === "business" || (org?.leadLimit && org.leadLimit >= 999999);
+  const leadLimit = org?.leadLimit ?? 50;
+
+  if (!isUnlimited) {
+    const currentLeadCount = await Lead.countDocuments({
+      organization: req.organization._id,
+      isDeleted: { $ne: true },
+    });
+
+    if (currentLeadCount + leads.length > leadLimit) {
+      throw new ApiError(
+        402,
+        `Lead limit reached (${currentLeadCount}/${leadLimit} leads). Importing ${leads.length} leads would exceed your plan limit.`
+      );
+    }
+  }
+
   // Fetch existing emails for this owner to prevent duplicate ingestion
   const existingLeads = await Lead.find({ organization: req.organization._id, email: { $ne: "" } }).select("email");
   const existingEmailSet = new Set(existingLeads.map((l) => l.email.toLowerCase()));

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
@@ -15,6 +15,7 @@ export function SocketProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
+  const prevOrgIdRef = useRef(activeOrg?.id);
 
   useEffect(() => {
     if (!user) {
@@ -90,9 +91,14 @@ export function SocketProvider({ children }) {
     };
   }, [user, activeOrg?.id, refreshSession]);
 
-  // When activeOrg changes on an existing connected socket, join the new org room
+  // When activeOrg changes on an existing connected socket, leave previous org and join the new org room
   useEffect(() => {
     if (socket && socket.connected && activeOrg?.id) {
+      if (prevOrgIdRef.current && prevOrgIdRef.current !== activeOrg.id) {
+        socket.emit("leave_org", prevOrgIdRef.current);
+      }
+      prevOrgIdRef.current = activeOrg.id;
+
       socket.emit("join_org", activeOrg.id);
       socket.emit("chat:get_online_teammates", activeOrg.id, (res) => {
         if (res?.success && Array.isArray(res.onlineUserIds)) {

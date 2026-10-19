@@ -23,6 +23,8 @@ import qaRoutes from "./routes/qa.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import { startAutoScoringJob } from "./jobs/autoScoring.js";
 
+import { corsOptions } from "./utils/cors.js";
+
 const app = express();
 
 // Trust proxy if running behind reverse proxy (e.g. AWS App Runner, Nginx, Heroku)
@@ -35,38 +37,7 @@ startAutoScoringJob();
 
 app.use(helmet()); // Secure HTTP headers
 app.use(globalLimiter); // Apply rate limiting to all requests
-
-const clientUrls = (process.env.CLIENT_URL || "")
-  .split(",")
-  .map((u) => u.trim())
-  .filter(Boolean);
-
-const allowedOrigins = [
-  ...clientUrls,
-  "https://revflux.deepaksinghdev.in",
-  "https://www.revflux.deepaksinghdev.in",
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:3000",
-];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        (origin && origin.endsWith(".vercel.app")) ||
-        (origin && origin.endsWith(".deepaksinghdev.in")) ||
-        process.env.NODE_ENV !== "production"
-      ) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));

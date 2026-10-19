@@ -1001,4 +1001,155 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     );
     assert.strictEqual(unauthDeliv.status, 404);
   });
+
+  it("22. Socket reconnection rejoins active conversation and receives subsequent messages", async () => {
+    const org = await Organization.create({ name: "Recon Org", plan: "starter" });
+    const userA = await User.create({ name: "Alice Recon", email: "alice.recon@org.com", password: "Password123!" });
+    const userB = await User.create({ name: "Bob Recon", email: "bob.recon@org.com", password: "Password123!" });
+
+    await OrganizationMembership.create({ user: userA._id, organization: org._id, role: "owner", status: "active" });
+    await OrganizationMembership.create({ user: userB._id, organization: org._id, role: "rep", status: "active" });
+
+    const tokenA = jwt.sign({ id: userA._id, tv: 0 }, JWT_SECRET);
+    const tokenB = jwt.sign({ id: userB._id, tv: 0 }, JWT_SECRET);
+
+    const convRes = await makeRequest("POST", "/api/chat/conversations/direct", { recipientId: userB._id }, tokenA, org._id);
+    const convId = convRes.data.conversation.id;
+
+    // Connect Bob's socket and join conversation
+    const socketB = createSocketClient(tokenB);
+    await new Promise((r) => socketB.on("connect", r));
+
+    const joinAck1 = await new Promise((resolve) => {
+      socketB.emit("chat:join_conversation", convId, resolve);
+    });
+    assert.strictEqual(joinAck1.success, true);
+
+    // Simulate network drop and reconnect
+    socketB.disconnect();
+    await new Promise((r) => setTimeout(r, 50));
+    socketB.connect();
+    await new Promise((r) => socketB.on("connect", r));
+
+    // Client reconnect handler rejoins active conversation
+    const joinAck2 = await new Promise((resolve) => {
+      socketB.emit("chat:join_conversation", convId, resolve);
+    });
+    assert.strictEqual(joinAck2.success, true);
+
+    // Alice sends a message over socket
+    const socketA = createSocketClient(tokenA);
+    await new Promise((r) => socketA.on("connect", r));
+
+    let receivedByBob = null;
+    socketB.on("chat:new_message", (msg) => {
+      receivedByBob = msg;
+    });
+
+    const sendAck = await new Promise((resolve) => {
+      socketA.emit("chat:send_message", { conversationId: convId, text: "Message after reconnect" }, resolve);
+    });
+    assert.strictEqual(sendAck.success, true);
+
+    await new Promise((r) => setTimeout(r, 100));
+    assert.ok(receivedByBob);
+    assert.strictEqual(receivedByBob.text, "Message after reconnect");
+
+    socketA.disconnect();
+    socketB.disconnect();
+  });
+
+  it("23. Organization switching removes socket from previous organization and conversation rooms", async () => {
+    const org1 = await Organization.create({ name: "Tenant 1", plan: "starter" });
+    const org2 = await Organization.create({ name: "Tenant 2", plan: "starter" });
+
+    const user = await User.create({ name: "Multi Org User", email: "user@multiorg.com", password: "Password123!" });
+    const teammate1 = await User.create({ name: "Team 1", email: "t1@org1.com", password: "Password123!" });
+
+    await OrganizationMembership.create({ user: user._id, organization: org1._id, role: "owner", status: "active" });
+    await OrganizationMembership.create({ user: user._id, organization: org2._id, role: "owner", status: "active" });
+    await OrganizationMembership.create({ user: teammate1._id, organization: org1._id, role: "rep", status: "active" });
+
+    const tokenUser = jwt.sign({ id: user._id, tv: 0 }, JWT_SECRET);
+    const tokenT1 = jwt.sign({ id: teammate1._id, tv: 0 }, JWT_SECRET);
+
+    const convRes = await makeRequest("POST", "/api/chat/conversations/direct", { recipientId: teammate1._id }, tokenUser, org1._id);
+    const convId1 = convRes.data.conversation.id;
+
+    const socketUser = createSocketClient(tokenUser);
+    await new Promise((r) => socketUser.on("connect", r));
+
+    // User joins Org 1 and conversation 1
+    socketUser.emit("join_org", org1._id.toString());
+    const joinConv = await new Promise((res) => socketUser.emit("chat:join_conversation", convId1, res));
+    assert.strictEqual(joinConv.success, true);
+
+    // User switches to Org 2
+    socketUser.emit("leave_org", org1._id.toString());
+    socketUser.emit("join_org", org2._id.toString());
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Teammate 1 sends message to Org 1's conversation
+    const socketT1 = createSocketClient(tokenT1);
+    await new Promise((r) => socketT1.on("connect", r));
+
+    let userReceived = null;
+    socketUser.on("chat:new_message", (msg) => {
+      userReceived = msg;
+    });
+
+    const sendRes = await new Promise((res) => {
+      socketT1.emit("chat:send_message", { conversationId: convId1, text: "Confidential Org 1 memo" }, res);
+    });
+    assert.strictEqual(sendRes.success, true);
+
+    await new Promise((r) => setTimeout(r, 100));
+    // User switched away to Org 2, so their socket in Org 2 must NOT receive Org 1 conversation messages
+    assert.strictEqual(userReceived, null);
+
+    socketUser.disconnect();
+    socketT1.disconnect();
+  });
+
+  it("24. Recipient read state is not initialized as read by sender, and blue ticks require recipient read", async () => {
+    const org = await Organization.create({ name: "Ticks Org", plan: "starter" });
+    const userA = await User.create({ name: "Sender", email: "sender@ticks.com", password: "Password123!" });
+    const userB = await User.create({ name: "Recipient", email: "recip@ticks.com", password: "Password123!" });
+
+    await OrganizationMembership.create({ user: userA._id, organization: org._id, role: "owner", status: "active" });
+    await OrganizationMembership.create({ user: userB._id, organization: org._id, role: "rep", status: "active" });
+
+    const tokenA = jwt.sign({ id: userA._id, tv: 0 }, JWT_SECRET);
+    const tokenB = jwt.sign({ id: userB._id, tv: 0 }, JWT_SECRET);
+
+    const convRes = await makeRequest("POST", "/api/chat/conversations/direct", { recipientId: userB._id }, tokenA, org._id);
+    const convId = convRes.data.conversation.id;
+
+    // Sender sends a message
+    const sendRes = await makeRequest("POST", `/api/chat/conversations/${convId}/messages`, { text: "Hello Recipient" }, tokenA, org._id);
+    const msgId = sendRes.data.message.id;
+
+    const msg = await Message.findById(msgId);
+
+    // Verify recipient read state: Recipient has NOT read the message
+    const recipientReads = msg.readBy.filter((r) => r.user.toString() !== userA._id.toString());
+    assert.strictEqual(recipientReads.length, 0);
+
+    // Recipient acknowledges delivery
+    await makeRequest("POST", `/api/chat/conversations/${convId}/delivered`, { messageIds: [msgId] }, tokenB, org._id);
+    const msgAfterDeliv = await Message.findById(msgId);
+    const recipDeliv = msgAfterDeliv.deliveredTo.filter((d) => d.user.toString() !== userA._id.toString());
+    assert.strictEqual(recipDeliv.length, 1);
+
+    // Still unread by recipient
+    const recipReadsStillZero = msgAfterDeliv.readBy.filter((r) => r.user.toString() !== userA._id.toString());
+    assert.strictEqual(recipReadsStillZero.length, 0);
+
+    // Recipient marks as read
+    await makeRequest("PATCH", `/api/chat/conversations/${convId}/read`, null, tokenB, org._id);
+    const msgAfterRead = await Message.findById(msgId);
+    const recipReadsAfter = msgAfterRead.readBy.filter((r) => r.user.toString() !== userA._id.toString());
+    assert.strictEqual(recipReadsAfter.length, 1);
+    assert.strictEqual(recipReadsAfter[0].user.toString(), userB._id.toString());
+  });
 });

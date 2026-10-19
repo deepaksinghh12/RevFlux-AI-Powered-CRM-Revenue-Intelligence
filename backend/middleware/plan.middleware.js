@@ -13,6 +13,10 @@ export const checkLeadLimit = asyncHandler(async (req, res, next) => {
   }
 
   const leadLimit = org.leadLimit ?? 50;
+  const isUnlimited = org.plan === "business" || leadLimit >= 999999;
+  if (isUnlimited) {
+    return next();
+  }
 
   // Count existing active leads for this organization (excluding soft-deleted leads)
   const currentLeadCount = await Lead.countDocuments({
