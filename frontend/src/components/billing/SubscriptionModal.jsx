@@ -19,8 +19,8 @@ import { currency } from "../../lib/format";
 import { toast } from "sonner";
 
 export function SubscriptionModal({ open, onClose }) {
-  const { user, updateUser } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState(user?.plan || "growth");
+  const { user, updateUser, activeOrg, refreshSession } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState(activeOrg?.plan || "growth");
   const [step, setStep] = useState("select"); // "select" | "checkout" | "processing" | "success"
   const [paymentMethod, setPaymentMethod] = useState("upi"); // "upi" | "card" | "netbanking"
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +33,7 @@ export function SubscriptionModal({ open, onClose }) {
   const [cardCvv, setCardCvv] = useState("888");
   const [cardName, setCardName] = useState(user?.name || "Deepak Singh");
 
-  const activePlanId = user?.plan || "free";
+  const activePlanId = activeOrg?.plan || "free";
   const targetPlanObj = PRICING_PLANS.find((p) => p.id === selectedPlan) || PRICING_PLANS[0];
 
   const basePrice = targetPlanObj.monthlyPrice;
@@ -92,6 +92,9 @@ export function SubscriptionModal({ open, onClose }) {
       toast.success(res.message || "Razorpay payment verified & plan upgraded!");
       if (res.user) {
         updateUser(res.user);
+      }
+      if (typeof refreshSession === "function") {
+        refreshSession();
       }
       setReceiptData({
         planName: targetPlanObj.name,

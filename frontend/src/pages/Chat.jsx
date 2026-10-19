@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   MessageSquare,
@@ -24,6 +24,15 @@ import { useSocket } from "../context/SocketContext";
 import { chatApi } from "../lib/services";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
+
+const getUserId = (u) => {
+  if (!u) return "";
+  if (typeof u === "string") return u;
+  if (u._id) return u._id.toString();
+  if (u.id) return u.id.toString();
+  if (typeof u.toString === "function") return u.toString();
+  return "";
+};
 
 export default function Chat() {
   const { user, activeOrg } = useAuth();
@@ -56,11 +65,12 @@ export default function Chat() {
   const [typingUsers, setTypingUsers] = useState({});
   const typingTimeoutRef = useRef(null);
 
-  // Scroll ref
+  // Scroll ref & Request ref
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const activeRequestIdRef = useRef(0);
 
-  const currentUserId = user?._id || user?.id;
+  const currentUserId = getUserId(user);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -129,50 +139,124 @@ export default function Chat() {
   }, [conversations, activeConversationId]);
 
   // 3. Load Messages when Active Conversation changes
+  const loadMessages = useCallback(
+    async (convId, isSilent = false) => {
+      if (!convId) {
+        setMessages([]);
+        setLoadingMessages(false);
+        return;
+      }
+
+      // If conversations are loaded and activeConversationId is not among them, reset cleanly
+      if (conversations.length > 0 && !conversations.some((c) => c.id === convId)) {
+        setMessages([]);
+        setLoadingMessages(false);
+        return;
+      }
+
+      const currentReqId = ++activeRequestIdRef.current;
+      if (!isSilent) {
+        setLoadingMessages(true);
+      }
+      setTypingUsers({});
+
+      try {
+        const res = await chatApi.getMessages(convId, { limit: 50 });
+        if (currentReqId !== activeRequestIdRef.current) return;
+
+        const incoming = res?.messages || [];
+        setMessages((prev) => {
+          if (prev.length === 0) return incoming;
+          const merged = [...incoming];
+          for (const m of prev) {
+            const mKey = (m.clientMessageId || m.id || m._id || "").toString();
+            if (
+              mKey &&
+              !merged.some(
+                (existing) => (existing.clientMessageId || existing.id || existing._id || "").toString() === mKey
+              )
+            ) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
+
+        setHasMoreMessages(res?.hasMore || false);
+
+        // Mark as read ONLY if document is genuinely visible
+        if (document.visibilityState === "visible") {
+          chatApi.markAsRead(convId).catch(() => {});
+          setConversations((prev) =>
+            prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+          );
+        }
+      } catch (err) {
+        if (currentReqId !== activeRequestIdRef.current) return;
+        toast.error("Could not load messages", { description: err.message });
+        setMessages([]);
+      } finally {
+        if (currentReqId === activeRequestIdRef.current) {
+          setLoadingMessages(false);
+          scrollToBottom();
+        }
+      }
+    },
+    [conversations]
+  );
+
   useEffect(() => {
-    if (!activeConversationId) {
+    if (activeConversationId) {
+      loadMessages(activeConversationId);
+    } else {
       setMessages([]);
-      return;
+      setLoadingMessages(false);
+    }
+  }, [activeConversationId, loadMessages]);
+
+  // Re-join conversation room on socket connection / reconnection
+  useEffect(() => {
+    if (!socket || !activeConversationId) return;
+
+    const handleSocketReconnect = () => {
+      socket.emit("chat:join_conversation", activeConversationId);
+      loadMessages(activeConversationId, true);
+    };
+
+    if (socket.connected) {
+      socket.emit("chat:join_conversation", activeConversationId);
     }
 
-    // If conversations are loaded and activeConversationId is not among them, do not fire 404
-    if (conversations.length > 0 && !conversations.some((c) => c.id === activeConversationId)) {
-      return;
-    }
+    socket.on("connect", handleSocketReconnect);
 
-    setLoadingMessages(true);
-    setTypingUsers({});
+    return () => {
+      socket.off("connect", handleSocketReconnect);
+      if (socket.connected) {
+        socket.emit("chat:leave_conversation", activeConversationId);
+      }
+    };
+  }, [socket, activeConversationId, loadMessages]);
 
-    chatApi
-      .getMessages(activeConversationId, { limit: 50 })
-      .then((res) => {
-        setMessages(res.messages || []);
-        setHasMoreMessages(res.hasMore || false);
-        // Mark conversation as read
+  // Mark conversation read when window focus or tab visibility changes
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible" && activeConversationId && socket) {
+        socket.emit("chat:mark_read", { conversationId: activeConversationId });
         chatApi.markAsRead(activeConversationId).catch(() => {});
         setConversations((prev) =>
           prev.map((c) => (c.id === activeConversationId ? { ...c, unreadCount: 0 } : c))
         );
-      })
-      .catch((err) => {
-        toast.error("Could not load messages", { description: err.message });
-      })
-      .finally(() => {
-        setLoadingMessages(false);
-        scrollToBottom();
-      });
-
-    // Join conversation room on socket
-    if (socket && socket.connected) {
-      socket.emit("chat:join_conversation", activeConversationId);
-    }
-
-    return () => {
-      if (socket && socket.connected) {
-        socket.emit("chat:leave_conversation", activeConversationId);
       }
     };
-  }, [activeConversationId, socket, conversations]);
+
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [socket, activeConversationId]);
 
   // 4. Socket Listeners for Realtime Chat
   useEffect(() => {
@@ -180,7 +264,11 @@ export default function Chat() {
 
     // Receive new message
     const handleNewMessage = (msg) => {
-      if (msg.sender?._id !== currentUserId) {
+      const senderId = getUserId(msg.sender);
+      const myId = getUserId(currentUserId);
+
+      // Recipient delivery receipt: only acknowledge if current user is not sender
+      if (senderId && senderId !== myId) {
         socket.emit("chat:message_delivered", {
           conversationId: msg.conversationId,
           messageId: msg.id || msg._id,
@@ -189,14 +277,22 @@ export default function Chat() {
 
       if (msg.conversationId === activeConversationId) {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
+          const msgKey = (msg.clientMessageId || msg.id || msg._id || "").toString();
+          if (
+            prev.some(
+              (m) => (m.clientMessageId || m.id || m._id || "").toString() === msgKey
+            )
+          ) {
+            return prev;
+          }
           return [...prev, msg];
         });
         scrollToBottom();
 
-        // Mark as read immediately if current user is active in conversation
-        if (msg.sender?._id !== currentUserId) {
+        // Mark as read ONLY if recipient's tab is genuinely visible
+        if (senderId && senderId !== myId && document.visibilityState === "visible") {
           socket.emit("chat:mark_read", { conversationId: activeConversationId });
+          chatApi.markAsRead(activeConversationId).catch(() => {});
         }
       }
 
@@ -215,7 +311,7 @@ export default function Chat() {
           createdAt: msg.createdAt,
         };
         conv.lastActivityAt = msg.createdAt;
-        if (msg.conversationId !== activeConversationId && msg.sender?._id !== currentUserId) {
+        if (msg.conversationId !== activeConversationId && senderId !== myId) {
           conv.unreadCount = (conv.unreadCount || 0) + 1;
         }
         updated.splice(index, 1);
@@ -226,7 +322,7 @@ export default function Chat() {
     // User typing indicator
     const handleUserTyping = ({ conversationId, userId, userName, isTyping }) => {
       if (conversationId !== activeConversationId) return;
-      if (userId === currentUserId) return;
+      if (getUserId(userId) === getUserId(currentUserId)) return;
 
       setTypingUsers((prev) => {
         const copy = { ...prev };
@@ -245,12 +341,13 @@ export default function Chat() {
 
       setMessages((prev) =>
         prev.map((m) => {
+          const mId = (m.id || m._id || "").toString();
           const isTarget =
-            (messageIds && (messageIds.includes(m.id) || messageIds.includes(m._id))) ||
-            (!messageIds && (m.sender?._id || m.sender?.id || m.sender) === currentUserId);
+            (messageIds && messageIds.some((id) => id.toString() === mId)) ||
+            (!messageIds && getUserId(m.sender) === getUserId(currentUserId));
           if (isTarget) {
-            const alreadyDelivered = m.deliveredTo?.some(
-              (d) => (d.user?._id || d.user || d).toString() === userId.toString()
+            const alreadyDelivered = (m.deliveredTo || []).some(
+              (d) => getUserId(d.user || d) === getUserId(userId)
             );
             if (!alreadyDelivered) {
               const deliveredTo = [
@@ -271,8 +368,8 @@ export default function Chat() {
 
       setMessages((prev) =>
         prev.map((m) => {
-          const alreadyRead = m.readBy?.some(
-            (r) => (r.user?._id || r.user || r).toString() === userId.toString()
+          const alreadyRead = (m.readBy || []).some(
+            (r) => getUserId(r.user || r) === getUserId(userId)
           );
           if (!alreadyRead) {
             const readBy = [
@@ -822,17 +919,27 @@ export default function Chat() {
                 </div>
               ) : (
                 messages.map((m, index) => {
-                  const isOwn = (m.sender?._id || m.sender?.id || m.sender) === currentUserId;
+                  const senderId = getUserId(m.sender);
+                  const myId = getUserId(currentUserId);
+                  const isOwn = senderId === myId;
                   const isGroup = activeConversation?.type === "group";
-                  const otherParticipants = activeConversation?.participants?.filter(
-                    (p) => (p._id || p.id || p).toString() !== currentUserId
-                  ) || [];
+                  const otherParticipants = (activeConversation?.participants || []).filter(
+                    (p) => getUserId(p) !== senderId
+                  );
                   const totalOthers = Math.max(otherParticipants.length, 1);
 
-                  const readCount =
-                    m.readBy?.filter((r) => (r.user?._id || r.user || r).toString() !== currentUserId).length || 0;
-                  const deliveredCount =
-                    m.deliveredTo?.filter((d) => (d.user?._id || d.user || d).toString() !== currentUserId).length || 0;
+                  // Recipient read and delivery counts MUST NOT count the sender
+                  const recipientReads = (m.readBy || []).filter((r) => {
+                    const rId = getUserId(r.user || r);
+                    return rId && rId !== senderId;
+                  });
+                  const readCount = recipientReads.length;
+
+                  const recipientDeliveries = (m.deliveredTo || []).filter((d) => {
+                    const dId = getUserId(d.user || d);
+                    return dId && dId !== senderId;
+                  });
+                  const deliveredCount = recipientDeliveries.length;
 
                   const isAllRead = isGroup ? readCount >= totalOthers : readCount > 0;
                   const isPartiallyRead = isGroup && readCount > 0 && readCount < totalOthers;

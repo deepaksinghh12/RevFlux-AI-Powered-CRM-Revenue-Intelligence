@@ -45,6 +45,8 @@ const toClientUser = (user, memberships = []) => ({
     subscriptionStatus: m.organization.subscriptionStatus,
     permissions: computeEffectivePermissions(m),
     customPermissions: m.customPermissions || [],
+    lastPaymentId: m.organization.lastPaymentId || "",
+    lastBilledAt: m.organization.lastBilledAt || null,
   }))
 });
 
@@ -331,6 +333,7 @@ export const subscribePlan = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    plan,
     message: `Subscription upgraded to ${plan.toUpperCase()} plan.`,
     paymentId: paymentId || "N/A",
     user: toClientUser(req.user, memberships),

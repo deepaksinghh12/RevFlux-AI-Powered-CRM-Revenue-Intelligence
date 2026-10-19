@@ -4,7 +4,9 @@ import axios from "axios";
 export const TOKEN_KEY = "ttp_crm_token";
 export const ACTIVE_ORG_KEY = "revflux_active_org";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const rawBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const cleanBase = rawBaseURL.replace(/\/+$/, "");
+const baseURL = cleanBase.endsWith("/api") ? cleanBase : `${cleanBase}/api`;
 
 const api = axios.create({
   baseURL,

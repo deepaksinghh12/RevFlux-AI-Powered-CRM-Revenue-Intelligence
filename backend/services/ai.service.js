@@ -44,6 +44,10 @@ export const isAIConfigured = () => {
  * Falls back to parsing the raw text if JSON mode fails.
  */
 const generateJSON = async (prompt, exampleShape = null) => {
+  if (process.env.OPENROUTER_API_KEY === "test") {
+    return exampleShape || {};
+  }
+
   const ai = getClient();
 
   const systemMsg = exampleShape
@@ -73,6 +77,10 @@ const generateJSON = async (prompt, exampleShape = null) => {
  * Generate a plain text response from OpenRouter.
  */
 const generateText = async (prompt, temperature = 0.7) => {
+  if (process.env.OPENROUTER_API_KEY === "test") {
+    return "Mock AI response";
+  }
+
   const ai = getClient();
 
   try {
@@ -106,6 +114,7 @@ export const generateLeadSummary = async (lead) => {
 Analyse this CRM lead and return a JSON object with exactly these keys:
 - "summary": 2-3 sentence plain-English summary of the lead
 - "aiRiskScore": integer 0–100 (0 = very safe/hot lead, 100 = high churn risk)
+- "suggestedPriority": "High" | "Medium" | "Low"
 - "insights": array of 3 short string bullet points about the lead
 - "recommendedAction": single sentence on the best next step
 
@@ -113,12 +122,25 @@ Lead data:
 ${JSON.stringify(lead, null, 2)}
 `.trim();
 
-  return generateJSON(prompt, {
+  const res = await generateJSON(prompt, {
     summary: "",
     aiRiskScore: 0,
+    suggestedPriority: "Medium",
     insights: [],
     recommendedAction: "",
   });
+
+  const aiRiskScore = typeof res.aiRiskScore === "number" ? res.aiRiskScore : (Number(res.aiRiskScore) || 0);
+  const action = res.recommendedAction || res.nextBestAction || "Follow up promptly with the client.";
+
+  return {
+    ...res,
+    aiRiskScore,
+    riskScore: aiRiskScore,
+    suggestedPriority: res.suggestedPriority || (aiRiskScore > 66 ? "High" : aiRiskScore > 33 ? "Medium" : "Low"),
+    recommendedAction: action,
+    nextBestAction: action,
+  };
 };
 
 /**
@@ -149,7 +171,10 @@ ${JSON.stringify(lead, null, 2)}
 export const generateSalesInsights = async (pipelineData) => {
   const prompt = `
 You are a senior sales analyst. Analyse this CRM pipeline data and return a JSON object with exactly these keys:
+- "healthScore": integer 0-100 indicating overall pipeline health
+- "headline": 1-sentence executive headline
 - "overview": 2-3 sentence summary of pipeline health
+- "insights": array of 3-4 short string observations about the pipeline
 - "topOpportunities": array of up to 3 objects, each with "leadName" and "reason"
 - "risks": array of up to 3 objects, each with "leadName" and "risk"
 - "recommendations": array of 3–5 short string action items
@@ -159,13 +184,31 @@ Pipeline data:
 ${JSON.stringify(pipelineData, null, 2)}
 `.trim();
 
-  return generateJSON(prompt, {
+  const res = await generateJSON(prompt, {
+    healthScore: 75,
+    headline: "",
     overview: "",
+    insights: [],
     topOpportunities: [],
     risks: [],
     recommendations: [],
     forecastNote: "",
   });
+
+  const headline = res.headline || res.overview || "Pipeline performance is stable.";
+  const overview = res.overview || headline;
+  const insights = Array.isArray(res.insights) && res.insights.length > 0 
+    ? res.insights 
+    : (Array.isArray(res.topOpportunities) ? res.topOpportunities.map(o => `${o.leadName}: ${o.reason}`) : ["Pipeline is actively tracking prospects."]);
+
+  return {
+    ...res,
+    healthScore: typeof res.healthScore === "number" ? res.healthScore : (Number(res.healthScore) || 75),
+    headline,
+    overview,
+    insights,
+    recommendations: Array.isArray(res.recommendations) && res.recommendations.length > 0 ? res.recommendations : ["Review upcoming deal milestones."],
+  };
 };
 
 export { generateJSON, generateText };

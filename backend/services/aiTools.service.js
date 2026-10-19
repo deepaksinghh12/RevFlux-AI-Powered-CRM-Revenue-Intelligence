@@ -4,6 +4,7 @@ import { Note } from "../models/Note.js";
 import User from "../models/User.js";
 import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
 import { hasEffectivePermission } from "../middleware/rbac.middleware.js";
+import { escapeRegex } from "../utils/sanitize.js";
 
 // Define the tool schemas
 export const copilotTools = [
@@ -97,12 +98,14 @@ export const executeTool = async (functionName, args, context = {}) => {
       return "Invalid argument: query is required.";
     }
 
+    const safeQuery = escapeRegex(args.query.trim());
+
     const queryFilter = {
       organization: organizationId,
       isDeleted: { $ne: true },
       $or: [
-        { name: { $regex: args.query.trim(), $options: "i" } },
-        { company: { $regex: args.query.trim(), $options: "i" } }
+        { name: { $regex: safeQuery, $options: "i" } },
+        { company: { $regex: safeQuery, $options: "i" } }
       ]
     };
 

@@ -88,6 +88,11 @@ const leadSchema = new mongoose.Schema(
       default: null,
     },
 
+    lastAutoScoredAt: {
+      type: Date,
+      default: null,
+    },
+
     attachments: [
       {
         name: String,

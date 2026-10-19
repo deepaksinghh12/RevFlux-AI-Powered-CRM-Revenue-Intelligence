@@ -2,6 +2,8 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import connectDB from "./config/db.js";
 import User from "./models/User.js";
+import Organization from "./models/Organization.js";
+import OrganizationMembership from "./models/OrganizationMembership.js";
 import { Lead } from "./models/Lead.js";
 import { Contact } from "./models/Contact.js";
 import { Note } from "./models/Note.js";
@@ -109,12 +111,34 @@ const rawTasks = [
 const seedUserData = async (user) => {
   console.log(`\n🌱 Seeding 1 Year of CRM data for user: ${user.name} (${user.email})...`);
 
-  // Clear existing records for this user
+  // Ensure user has an Organization and active owner membership
+  let membership = await OrganizationMembership.findOne({ user: user._id, status: "active" }).populate("organization");
+  let org = membership?.organization;
+
+  if (!org) {
+    org = await Organization.findOne({ code: "DEMO" });
+    if (!org) {
+      org = await Organization.create({
+        name: "Demo Workspace",
+        code: "DEMO",
+        plan: "growth",
+        owner: user._id,
+      });
+    }
+
+    membership = await OrganizationMembership.findOneAndUpdate(
+      { user: user._id, organization: org._id },
+      { role: "owner", status: "active" },
+      { upsert: true, new: true }
+    );
+  }
+
+  // Clear existing records for this user & organization
   await Promise.all([
-    Lead.deleteMany({ owner: user._id }),
-    Contact.deleteMany({ owner: user._id }),
-    Note.deleteMany({ owner: user._id }),
-    Task.deleteMany({ owner: user._id }),
+    Lead.deleteMany({ owner: user._id, organization: org._id }),
+    Contact.deleteMany({ owner: user._id, organization: org._id }),
+    Note.deleteMany({ owner: user._id, organization: org._id }),
+    Task.deleteMany({ owner: user._id, organization: org._id }),
   ]);
 
   // 1. Create Leads
@@ -123,6 +147,7 @@ const seedUserData = async (user) => {
 
   for (const item of rawLeads) {
     const leadDoc = await Lead.create({
+      organization: org._id,
       owner: user._id,
       name: item.name,
       company: item.company,
@@ -148,6 +173,7 @@ const seedUserData = async (user) => {
   const contactMap = {};
   for (const item of rawContacts) {
     const contactDoc = await Contact.create({
+      organization: org._id,
       owner: user._id,
       name: item.name,
       title: item.title,
@@ -167,6 +193,7 @@ const seedUserData = async (user) => {
   for (const item of rawNotes) {
     const leadDoc = leadMap[item.leadKey];
     await Note.create({
+      organization: org._id,
       owner: user._id,
       content: item.content,
       lead: leadDoc ? leadDoc._id : null,
@@ -182,6 +209,7 @@ const seedUserData = async (user) => {
     const leadDoc = leadMap[item.leadKey];
     const dueDate = item.dueDays >= 0 ? daysAhead(item.dueDays) : daysAgo(Math.abs(item.dueDays));
     await Task.create({
+      organization: org._id,
       owner: user._id,
       title: item.title,
       description: "",

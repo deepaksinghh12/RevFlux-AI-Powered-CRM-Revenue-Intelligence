@@ -27,7 +27,8 @@ export const getTasks = asyncHandler(async (req, res) => {
 import OrganizationMembership from "../models/OrganizationMembership.js";
 import Lead from "../models/Lead.js";
 import { Contact } from "../models/Contact.js";
-import { ROLE_PERMISSIONS, PERMISSIONS } from "../config/permissions.js";
+import { PERMISSIONS } from "../config/permissions.js";
+import { hasEffectivePermission } from "../middleware/rbac.middleware.js";
 
 export const createTask = asyncHandler(async (req, res) => {
   const targetOwnerId = req.body.assignedTo || req.body.owner;
@@ -35,9 +36,7 @@ export const createTask = asyncHandler(async (req, res) => {
 
   if (targetOwnerId && targetOwnerId.toString() !== req.user._id.toString()) {
     // Check if user has permission to assign
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");
@@ -127,9 +126,7 @@ export const updateTask = asyncHandler(async (req, res) => {
 
   // Handle owner reassignment if requested
   if (newOwner && newOwner.toString() !== task.owner.toString()) {
-    const userRole = req.membership.role;
-    const permissions = ROLE_PERMISSIONS[userRole] || [];
-    const hasAssignPerm = permissions.includes("*") || permissions.includes(PERMISSIONS.LEADS_ASSIGN);
+    const hasAssignPerm = hasEffectivePermission(req.membership, PERMISSIONS.LEADS_ASSIGN);
 
     if (!hasAssignPerm) {
       throw new ApiError(403, "Access Denied: You do not have permission to assign records to other users");

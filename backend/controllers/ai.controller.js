@@ -16,7 +16,11 @@ export const resolveLead = async (req) => {
   const leadId = req.body?.leadId || req.params?.id || req.body?.id;
 
   if (leadId) {
-    const lead = await Lead.findOne({ _id: leadId, owner: req.user._id, organization: req.organization._id });
+    const query = { _id: leadId, organization: req.organization._id, isDeleted: { $ne: true } };
+    if (req.membership?.role === "rep") {
+      query.owner = req.user._id;
+    }
+    const lead = await Lead.findOne(query);
     if (!lead) {
       throw new ApiError(404, "Lead not found");
     }
@@ -186,23 +190,30 @@ export const salesInsights = asyncHandler(async (req, res) => {
 export const getAttentionLeads = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
-  // 1. Fetch all open leads (excluding Won and Lost)
-  const openLeads = await Lead.find({
-    owner: userId,
+  const leadQuery = {
     organization: req.organization._id,
     status: { $nin: ["Won", "Lost"] },
-  });
+    isDeleted: { $ne: true },
+  };
+  const taskQuery = {
+    organization: req.organization._id,
+    status: { $ne: "Completed" },
+  };
+
+  if (req.membership?.role === "rep") {
+    leadQuery.owner = userId;
+    taskQuery.owner = userId;
+  }
+
+  // 1. Fetch all open leads (excluding Won and Lost)
+  const openLeads = await Lead.find(leadQuery);
 
   if (openLeads.length === 0) {
     return res.json({ success: true, count: 0, leads: [] });
   }
 
-  // 2. Fetch pending tasks for the user to check upcoming follow-ups
-  const pendingTasks = await Task.find({
-    owner: userId,
-    organization: req.organization._id,
-    status: { $ne: "Completed" },
-  });
+  // 2. Fetch pending tasks to check upcoming follow-ups
+  const pendingTasks = await Task.find(taskQuery);
 
   const leadTaskMap = new Set(
     pendingTasks
@@ -246,6 +257,7 @@ export const getAttentionLeads = asyncHandler(async (req, res) => {
 
     // Clamp score between 0 and 100
     const finalRiskScore = Math.min(100, Math.max(0, computedRisk));
+    const primaryReason = reasons.length > 0 ? reasons[0] : "Standard follow-up cadence recommended";
 
     return {
       _id: lead._id,
@@ -257,7 +269,8 @@ export const getAttentionLeads = asyncHandler(async (req, res) => {
       status: lead.status,
       priority: lead.priority,
       riskScore: finalRiskScore,
-      reasons: reasons.length > 0 ? reasons : ["Standard follow-up cadence recommended"],
+      attentionReason: primaryReason,
+      reasons: reasons.length > 0 ? reasons : [primaryReason],
       recommendedAction,
       daysInactive,
       hasFollowUp,

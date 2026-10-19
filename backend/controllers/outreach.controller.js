@@ -1,7 +1,10 @@
 import { EmailTemplate } from "../models/EmailTemplate.js";
 import { OutreachSequence, OutreachQueue } from "../models/OutreachSequence.js";
+import { Note } from "../models/Note.js";
 import Lead from "../models/Lead.js";
 import { generateEmail } from "../services/ai.service.js";
+import { sendEmail } from "../services/email.service.js";
+import { EMAIL_CATEGORIES } from "../config/email.config.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { logActivity } from "../services/activity.service.js";
@@ -209,8 +212,25 @@ export const sendQueueItem = asyncHandler(async (req, res) => {
     query.owner = req.user._id;
   }
 
-  const queueItem = await OutreachQueue.findOne(query);
+  const queueItem = await OutreachQueue.findOne(query).populate("lead");
   if (!queueItem) throw new ApiError(404, "Draft not found in queue or access denied");
+
+  if (queueItem.lead?.email) {
+    await sendEmail({
+      category: EMAIL_CATEGORIES.NOTIFICATIONS,
+      to: queueItem.lead.email,
+      subject: queueItem.subject,
+      html: queueItem.body ? queueItem.body.replace(/\n/g, "<br>") : "",
+      text: queueItem.body,
+    });
+  }
+
+  await Note.create({
+    organization: req.organization._id,
+    owner: req.user._id,
+    lead: queueItem.lead?._id || queueItem.lead,
+    content: `Email Sent (Outreach Queue):\n\nSubject: ${queueItem.subject}\n\n${queueItem.body}`,
+  });
 
   queueItem.status = "sent";
   queueItem.sentAt = new Date();
@@ -223,7 +243,7 @@ export const sendQueueItem = asyncHandler(async (req, res) => {
     user: req.user._id,
     action: "EMAIL_SENT",
     entityType: "Lead",
-    entityId: queueItem.lead,
+    entityId: queueItem.lead?._id || queueItem.lead,
     details: { subject: queueItem.subject }
   });
 });
@@ -248,7 +268,15 @@ export const dismissQueueItem = asyncHandler(async (req, res) => {
 // ===============================
 export const triggerCadenceForLead = async ({ userId, lead, triggerType, newStage, riskScore }) => {
   try {
-    const sequences = await OutreachSequence.find({ owner: userId, isActive: true }).populate("template");
+    const orgId = lead.organization || (lead.populated ? lead.organization : null);
+    const query = { isActive: true };
+    if (orgId) {
+      query.organization = orgId;
+    } else if (userId) {
+      query.owner = userId;
+    }
+
+    const sequences = await OutreachSequence.find(query).populate("template");
 
     for (const seq of sequences) {
       let matched = false;
@@ -267,12 +295,18 @@ export const triggerCadenceForLead = async ({ userId, lead, triggerType, newStag
 
       if (matched) {
         // Prevent duplicate queue items for same lead & sequence in last 24h
-        const recent = await OutreachQueue.findOne({
-          owner: userId,
+        const dupQuery = {
           lead: lead._id,
           sequence: seq._id,
           createdAt: { $gte: new Date(Date.now() - 86400000) },
-        });
+        };
+        if (orgId) {
+          dupQuery.organization = orgId;
+        } else if (userId) {
+          dupQuery.owner = userId;
+        }
+
+        const recent = await OutreachQueue.findOne(dupQuery);
 
         if (!recent) {
           // Generate customized subject and body from template or AI
@@ -290,8 +324,11 @@ export const triggerCadenceForLead = async ({ userId, lead, triggerType, newStag
             .replace(/{{company}}/g, lead.company || "your business")
             .replace(/{{repName}}/g, "Sales Team");
 
+          const assignedOwner = lead.owner || userId || seq.owner;
+
           await OutreachQueue.create({
-            owner: userId,
+            organization: orgId || seq.organization,
+            owner: assignedOwner,
             lead: lead._id,
             sequence: seq._id,
             subject,

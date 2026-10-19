@@ -442,12 +442,19 @@ export const reorderLeads = asyncHandler(async (req, res) => {
         updateData.order = item.order;
       }
 
+      const filter = {
+        _id: item.id || item._id,
+        organization: req.organization._id,
+        isDeleted: { $ne: true },
+      };
+
+      if (req.membership && req.membership.role === "rep") {
+        filter.owner = req.user._id;
+      }
+
       return {
         updateOne: {
-          filter: {
-            _id: item.id || item._id,
-            organization: req.organization._id,
-          },
+          filter,
           update: { $set: updateData },
         },
       };
@@ -484,7 +491,17 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
     );
   }
 
-  const lead = await Lead.findOne({ _id: req.params.id, organization: req.organization._id });
+  const leadFilter = {
+    _id: req.params.id,
+    organization: req.organization._id,
+    isDeleted: { $ne: true },
+  };
+
+  if (req.membership && req.membership.role === "rep") {
+    leadFilter.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(leadFilter);
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");
@@ -508,6 +525,7 @@ export const sendLeadEmail = asyncHandler(async (req, res) => {
   // Auto-create a Note that the email was sent
   await Note.create({
     organization: req.organization._id,
+    owner: req.user._id,
     lead: lead._id,
     content: `Email Sent:\n\nSubject: ${subject}\n\n${body}`,
   });
@@ -528,6 +546,25 @@ export const importLeads = asyncHandler(async (req, res) => {
 
   if (!leads || !Array.isArray(leads) || leads.length === 0) {
     throw new ApiError(400, "Please provide an array of leads to import.");
+  }
+
+  // Quota enforcement: reject batch upfront if it would exceed plan limit
+  const org = req.organization;
+  const isUnlimited = org?.plan === "business" || (org?.leadLimit && org.leadLimit >= 999999);
+  const leadLimit = org?.leadLimit ?? 50;
+
+  if (!isUnlimited) {
+    const currentLeadCount = await Lead.countDocuments({
+      organization: req.organization._id,
+      isDeleted: { $ne: true },
+    });
+
+    if (currentLeadCount + leads.length > leadLimit) {
+      throw new ApiError(
+        402,
+        `Lead limit reached (${currentLeadCount}/${leadLimit} leads). Importing ${leads.length} leads would exceed your plan limit.`
+      );
+    }
   }
 
   // Fetch existing emails for this owner to prevent duplicate ingestion
@@ -586,7 +623,17 @@ export const importLeads = asyncHandler(async (req, res) => {
 // UPLOAD ATTACHMENT
 // ===============================
 export const uploadAttachment = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, organization: req.organization._id });
+  const leadFilter = {
+    _id: req.params.id,
+    organization: req.organization._id,
+    isDeleted: { $ne: true },
+  };
+
+  if (req.membership && req.membership.role === "rep") {
+    leadFilter.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(leadFilter);
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");
@@ -633,7 +680,17 @@ export const uploadAttachment = asyncHandler(async (req, res) => {
 // DELETE ATTACHMENT
 // ===============================
 export const deleteAttachment = asyncHandler(async (req, res) => {
-  const lead = await Lead.findOne({ _id: req.params.id, organization: req.organization._id });
+  const leadFilter = {
+    _id: req.params.id,
+    organization: req.organization._id,
+    isDeleted: { $ne: true },
+  };
+
+  if (req.membership && req.membership.role === "rep") {
+    leadFilter.owner = req.user._id;
+  }
+
+  const lead = await Lead.findOne(leadFilter);
 
   if (!lead) {
     throw new ApiError(404, "Lead not found");
