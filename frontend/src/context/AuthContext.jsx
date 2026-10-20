@@ -100,6 +100,28 @@ export function AuthProvider({ children }) {
     return res.user;
   }, []);
 
+  const loginWithToken = useCallback(async (token) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    const res = await authApi.me();
+    persist({ token, user: res.user });
+    await processPendingInvite();
+    return res.user;
+  }, []);
+
+  const exchangeMicrosoftCode = useCallback(async (code) => {
+    const res = await authApi.exchangeMicrosoftCode({ code });
+    persist(res);
+    await processPendingInvite();
+    return res.user;
+  }, []);
+
+  const linkMicrosoft = useCallback(async (data) => {
+    const res = await authApi.linkMicrosoft(data);
+    persist(res);
+    await processPendingInvite();
+    return res.user;
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ACTIVE_ORG_KEY);
@@ -139,7 +161,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser, refreshSession, otpLogin }}
+      value={{ user, activeOrg, switchOrganization, loading, login, googleLogin, register, logout, updateUser, refreshSession, otpLogin, loginWithToken, linkMicrosoft, exchangeMicrosoftCode }}
     >
       {children}
     </AuthContext.Provider>

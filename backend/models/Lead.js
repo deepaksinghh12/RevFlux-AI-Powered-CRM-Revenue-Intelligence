@@ -117,6 +117,7 @@ const leadSchema = new mongoose.Schema(
     deletedAt: {
       type: Date,
       default: null,
+      index: true,
     },
   },
   {
@@ -124,11 +125,7 @@ const leadSchema = new mongoose.Schema(
   }
 );
 
-// TTL index to automatically permanently delete records 30 days after they are soft-deleted
-leadSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
-);
+leadSchema.index({ organization: 1, isDeleted: 1, deletedAt: -1 });
 
 export const Lead = mongoose.model("Lead", leadSchema);
 export default Lead;

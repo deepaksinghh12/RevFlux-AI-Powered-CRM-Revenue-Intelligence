@@ -21,7 +21,7 @@ import { computeEffectivePermissions } from "../middleware/rbac.middleware.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const toClientUser = (user, memberships = []) => ({
+export const toClientUser = (user, memberships = []) => ({
   id: user._id,
   name: user.name,
   email: user.email,
@@ -51,7 +51,7 @@ const toClientUser = (user, memberships = []) => ({
 });
 
 // Helper to fetch and auto-accept memberships
-const getUserMemberships = async (userId) => {
+export const getUserMemberships = async (userId) => {
   // Auto-accept any pending invitations upon successful authentication
   await OrganizationMembership.updateMany(
     { user: userId, status: "invited" },

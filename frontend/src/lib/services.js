@@ -13,6 +13,10 @@ export const authApi = {
   requestOtp: (data) => api.post("/auth/otp/request", data),
   verifyOtp: (data) => api.post("/auth/otp/verify", data),
   revokeSessions: (data) => api.post("/auth/account/revoke-sessions", data),
+  exchangeMicrosoftCode: (data) => api.post("/auth/microsoft/exchange", data),
+  requestLinkingOtp: (data) => api.post("/auth/microsoft/link/request-otp", data),
+  linkMicrosoft: (data) => api.post("/auth/microsoft/link", data),
+  getMicrosoftConfig: () => api.get("/auth/microsoft/config"),
 };
 
 /* ── Leads ──────────────────────────────────────────────────────────── */
@@ -116,4 +120,11 @@ export const chatApi = {
     api.post(`/chat/conversations/${conversationId}/delivered`, { messageIds }),
   updatePreferences: (data) => api.patch("/chat/preferences", data),
   getTeammates: () => api.get("/chat/teammates"),
+};
+
+/* ── Universal Trash & Recovery ─────────────────────────────────────── */
+export const trashApi = {
+  list: (params) => api.get("/trash", { params }),
+  restore: (entityType, id) => api.post(`/trash/${entityType}/${id}/restore`),
+  purge: (entityType, id) => api.delete(`/trash/${entityType}/${id}/purge`),
 };

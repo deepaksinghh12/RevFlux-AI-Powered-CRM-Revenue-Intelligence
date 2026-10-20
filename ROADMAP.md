@@ -1,8 +1,19 @@
 # 🚀 RevFlux — Sellable MVP Roadmap & Technical Architecture
 
-> **Last updated**: September 2026  
+> **Last updated**: October 2026 (v1.1.0 Completed ✅ · v1.2.0 In Planning 🚧)
 > **Core positioning**: *RevFlux helps small sales teams stop losing leads and follow-ups by combining CRM, AI sales intelligence, and actionable follow-up management.*  
 > **Stack**: **React 19 + Vite** (frontend) · **Node.js + Express** (backend) · **MongoDB** · **OpenRouter / gpt-4o-mini** (AI) · **Resend** (Email) · **Socket.io** (Real-time) · **Cloudinary** (Attachments)
+
+---
+
+## 🏁 Release Milestones & Version History
+
+- **v1.0.0 (Commercial MVP)**: Multi-tenant CRM foundation, RBAC, AI scoring, Email OTP, Lead management, Deal pipelines, and Team Member IDs.
+- **v1.1.0 (Real-Time Presence, Receipts & Hardening — COMPLETED ✅)**: WhatsApp-style message receipts (grey/blue ticks), multi-tab presence, reconnect recovery, organization room isolation, strict production CORS hardening, and CSV import quota enforcement.
+- **v1.2.0 (Trash Recovery, API Pagination & Rich Chat — CURRENT TARGET 🎯)**:
+  - **Phase 1**: Universal Trash & Soft-Delete Recovery Engine (Lead, Contact, Task, Note with predictable 30-day recovery window, quota-safe restores, and RBAC sandboxing).
+  - **Phase 2**: Standardized Offset/Cursor API Pagination & Query Optimization (backward-compatible response contracts and compound indexes for high-volume datasets).
+  - **Phase 3**: Rich Team Chat Expansion (@Mentions, file attachments, and synchronized unread badge counts across sidebar, header, and widget).
 
 ---
 

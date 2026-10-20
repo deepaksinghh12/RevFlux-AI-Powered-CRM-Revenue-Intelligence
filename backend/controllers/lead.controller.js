@@ -390,14 +390,15 @@ export const deleteLead = asyncHandler(async (req, res) => {
   }
 
   // Soft delete instead of hard delete
+  const deletionTimestamp = new Date();
   lead.isDeleted = true;
-  lead.deletedAt = new Date();
+  lead.deletedAt = deletionTimestamp;
   await lead.save();
 
-  // Soft delete associated notes
+  // Soft delete associated active notes and mark them as deleted with this lead
   await Note.updateMany(
     { lead: lead._id, isDeleted: { $ne: true } }, 
-    { $set: { isDeleted: true, deletedAt: new Date() } }
+    { $set: { isDeleted: true, deletedAt: deletionTimestamp, deletedWithLead: lead._id } }
   );
   
   // Clean up associated tasks

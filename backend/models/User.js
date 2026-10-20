@@ -70,6 +70,25 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "deactivated", "suspended"],
       default: "active",
     },
+
+    microsoftId: {
+      type: String,
+      trim: true,
+      index: {
+        unique: true,
+        partialFilterExpression: { microsoftId: { $type: "string" } },
+      },
+    },
+
+    microsoftTenantId: {
+      type: String,
+      trim: true,
+    },
+
+    microsoftObjectId: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

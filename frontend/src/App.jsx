@@ -26,6 +26,7 @@ import { useAuth } from "./context/AuthContext";
 import AcceptInvite from "./pages/auth/AcceptInvite";
 import QAWorkspace from "./pages/QAWorkspace";
 import Chat from "./pages/Chat";
+import Trash from "./pages/Trash";
 
 export default function App() {
   const { user } = useAuth();
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="outreach" element={<Outreach />} />
         <Route path="team" element={<Team />} />
         <Route path="chat" element={<Chat />} />
+        <Route path="trash" element={<Trash />} />
         <Route path="settings" element={<Settings />} />
         <Route path="qa-workspace" element={<QAWorkspace />} />
       </Route>

@@ -21,7 +21,9 @@ import organizationRoutes from "./routes/organization.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import qaRoutes from "./routes/qa.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
+import trashRoutes from "./routes/trash.routes.js";
 import { startAutoScoringJob } from "./jobs/autoScoring.js";
+import { startTrashCleanupJob } from "./jobs/trashCleanup.js";
 
 import { corsOptions } from "./utils/cors.js";
 
@@ -30,8 +32,11 @@ const app = express();
 // Trust proxy if running behind reverse proxy (e.g. AWS App Runner, Nginx, Heroku)
 app.set("trust proxy", 1);
 
-// Initialize background jobs
-startAutoScoringJob();
+// Initialize background jobs (skip in test environment)
+if (process.env.NODE_ENV !== "test") {
+  startAutoScoringJob();
+  startTrashCleanupJob();
+}
 
 // -------------------- Security & Core Middleware -------------------- //
 
@@ -61,6 +66,7 @@ app.use("/api/outreach", outreachRoutes);
 app.use("/api/team", teamRoutes);
 app.use("/api/qa", qaRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/trash", trashRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

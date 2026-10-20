@@ -45,6 +45,13 @@ const noteSchema = new mongoose.Schema(
     deletedAt: {
       type: Date,
       default: null,
+      index: true,
+    },
+    deletedWithLead: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+      default: null,
+      index: true,
     },
   },
   {
@@ -52,9 +59,6 @@ const noteSchema = new mongoose.Schema(
   }
 );
 
-noteSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
-);
+noteSchema.index({ organization: 1, isDeleted: 1, deletedAt: -1 });
 
 export const Note = mongoose.model("Note", noteSchema);
