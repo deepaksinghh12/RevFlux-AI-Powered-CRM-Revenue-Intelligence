@@ -67,6 +67,7 @@ const contactSchema = new mongoose.Schema(
     deletedAt: {
       type: Date,
       default: null,
+      index: true,
     },
   },
   {
@@ -80,9 +81,6 @@ contactSchema.index({
   company: "text",
 });
 
-contactSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
-);
+contactSchema.index({ organization: 1, isDeleted: 1, deletedAt: -1 });
 
 export const Contact = mongoose.model("Contact", contactSchema);

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { describe, it, before, after, beforeEach } from "node:test";
+import { describe, it, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import mongoose from "mongoose";
 import express from "express";
@@ -29,8 +29,15 @@ process.env.JWT_SECRET = JWT_SECRET;
 const sampleResend = new Resend("test_dummy_key");
 const EmailsProto = Object.getPrototypeOf(sampleResend.emails);
 const originalSend = EmailsProto.send;
+const originalResendApiKey = process.env.RESEND_API_KEY;
+
+// Isolate tests from external email API by default
+delete process.env.RESEND_API_KEY;
+resetResendClient();
 
 before(async () => {
+  delete process.env.RESEND_API_KEY;
+  resetResendClient();
   const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/revflux_dev";
   const lower = mongoUri.toLowerCase();
   const env = (process.env.NODE_ENV || "").toLowerCase();
@@ -70,6 +77,11 @@ before(async () => {
 
 after(async () => {
   EmailsProto.send = originalSend;
+  if (originalResendApiKey !== undefined) {
+    process.env.RESEND_API_KEY = originalResendApiKey;
+  } else {
+    delete process.env.RESEND_API_KEY;
+  }
   resetResendClient();
 
   if (socketServer) {
@@ -86,12 +98,19 @@ after(async () => {
 
 beforeEach(async () => {
   EmailsProto.send = originalSend;
+  delete process.env.RESEND_API_KEY;
   resetResendClient();
 
   const collections = mongoose.connection.collections;
   for (const key in collections) {
     await collections[key].deleteMany({});
   }
+});
+
+afterEach(async () => {
+  EmailsProto.send = originalSend;
+  delete process.env.RESEND_API_KEY;
+  resetResendClient();
 });
 
 // Helper for REST requests
@@ -463,6 +482,9 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     };
 
     process.env.RESEND_API_KEY = "re_test_mock_key";
+    resetResendClient();
+
+    try {
 
     const org = await Organization.create({ name: "Email Pref Org", plan: "growth" });
     const userA = await User.create({ name: "Alice", email: "alice@emailpref.com", password: "Password123!" });
@@ -517,6 +539,11 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     assert.strictEqual(sentEmails.length, 1);
     assert.strictEqual(sentEmails[0].to[0], "bob@emailpref.com");
     assert.strictEqual(sentEmails.some((e) => e.to.includes("alice@emailpref.com")), false);
+    } finally {
+      delete process.env.RESEND_API_KEY;
+      resetResendClient();
+      EmailsProto.send = originalSend;
+    }
   });
 
   it("12. Email provider failure does not discard a saved message", async () => {
@@ -525,6 +552,9 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     };
 
     process.env.RESEND_API_KEY = "re_test_mock_key";
+    resetResendClient();
+
+    try {
 
     const org = await Organization.create({ name: "Resilient Org", plan: "growth" });
     const userA = await User.create({ name: "Alice", email: "alice@resilient.com", password: "Password123!" });
@@ -547,6 +577,11 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     const saved = await Message.findById(sendRes.data.message.id);
     assert.ok(saved);
     assert.strictEqual(saved.text, "Message stays safe!");
+    } finally {
+      delete process.env.RESEND_API_KEY;
+      resetResendClient();
+      EmailsProto.send = originalSend;
+    }
   });
 
   it("13. Revoked sessions cannot perform protected chat actions", async () => {
@@ -652,6 +687,9 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     };
 
     process.env.RESEND_API_KEY = "re_test_mock_key";
+    resetResendClient();
+
+    try {
 
     const org = await Organization.create({ name: "Security Org <script>", plan: "growth" });
     const userA = await User.create({ name: "Malicious <script>alert(1)</script>", email: "alice@xss.com", password: "Password123!" });
@@ -680,6 +718,11 @@ describe("RevFlux Secure Realtime Team Chat Suite", () => {
     assert.ok(capturedEmail.html.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
     assert.strictEqual(capturedEmail.html.includes("<img src=x onerror=alert("), false);
     assert.ok(capturedEmail.html.includes("&lt;img src=x onerror=alert(&quot;Hacked&quot;)&gt;"));
+    } finally {
+      delete process.env.RESEND_API_KEY;
+      resetResendClient();
+      EmailsProto.send = originalSend;
+    }
   });
 
   it("16. Online/offline presence and multi-tab socket management", async () => {

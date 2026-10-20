@@ -73,6 +73,7 @@ const taskSchema = new mongoose.Schema(
     deletedAt: {
       type: Date,
       default: null,
+      index: true,
     },
   },
   {
@@ -80,10 +81,7 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
-taskSchema.index(
-  { deletedAt: 1 },
-  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { isDeleted: true } }
-);
+taskSchema.index({ organization: 1, isDeleted: 1, deletedAt: -1 });
 
 export const Task = mongoose.model("Task", taskSchema);
 export default Task;

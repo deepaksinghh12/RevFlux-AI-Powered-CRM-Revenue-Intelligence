@@ -14,6 +14,7 @@ import {
   LogOut,
   Sparkles,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
@@ -31,6 +32,7 @@ const NAV = [
   { to: "/chat", label: "Team Chat", icon: MessageSquare },
   { to: "/outreach", label: "AI Outreach", icon: Mail, permission: "outreach.manage" },
   { to: "/team", label: "Team & Roles", icon: ShieldCheck, permission: "team.read" },
+  { to: "/trash", label: "Trash", icon: Trash2 },
 ];
 
 export function Sidebar({ onNavigate }) {

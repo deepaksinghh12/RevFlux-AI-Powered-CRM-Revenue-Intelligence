@@ -58,12 +58,38 @@
 - **Automated Test Suite**: Added [`backend/tests/auth.test.js`](file:///D:/coding/RevFlux/backend/tests/auth.test.js) (11/11 tests passing via `node --test tests/auth.test.js`).
 - **Manual QA Checklist**: Standby for manual verification (see final report).
 
-## dY"' Authentication Expansion: Phase B ?" Email OTP Passwordless Authentication (Completed o.)
+## 🔒 Authentication Expansion: Phase B — Email OTP Passwordless Authentication (Completed ✅)
 
 - **Architecture**: Designed Email OTP using the existing `User` model, maintaining full compatibility with the existing JWT issuance mechanism and `AuthContext`.
 - **OTP Storage**: Implemented `EmailOTP` Mongoose model (`backend/models/EmailOTP.js`) incorporating bcrypt hashing for OTPs, maximum attempt constraints to thwart brute-forcing, and a MongoDB TTL index for automatic expiration after 10 minutes. 
 - **Security & Rate Limiting**: Deployed dedicated sliding-window rate limiters (`otpRequestLimiter`, `otpVerifyLimiter`) via `rateLimit.middleware.js` utilizing an isolated in-memory map per limiter. Implemented generic responses to prevent user account enumeration. Plaintext OTPs are exclusively dispatched via Resend and never stored or logged in production.
 - **Resend Integration**: Built out email templates and logic leveraging the existing `process.env.RESEND_API_KEY` configuration.
 - **Frontend Changes**: Overhauled `frontend/src/pages/auth/Login.jsx` to accommodate a dynamic view toggling between password and OTP modes (Request OTP & Verify OTP), integrated a 60-second cooldown timer, and wired the API via `authApi.verifyOtp`.
-- **Tests**: Appended comprehensive security and functional tests to `auth.test.js`, covering successful requests, verification, invalid attempts, incrementing counters, and expiration handling (all 15/15 tests passing).
-- **Manual QA Checklist**: Provided a comprehensive plan to verify backwards compatibility and the new passwordless flow.
+- **Tests**: Appended comprehensive security and functional tests to `auth.test.js`, covering successful requests, verification, invalid attempts, incrementing counters, and expiration handling.
+
+---
+
+## 🚀 Release v1.1.0 — Real-Time Presence, WhatsApp-Style Message Receipts, CORS Hardening, and Lead Import Quotas (Completed ✅)
+
+- **WhatsApp-Style Delivery & Read Receipts**:
+  - Full sent, delivered, and read status lifecycle: 1 grey check (persisted), 2 grey checks (delivered to recipient tab), 2 sky-blue checks (read by recipient in focused tab).
+  - Strict sender ID exclusion: `readBy` and `deliveredTo` calculations exclude sender ID, preventing false-positive blue ticks on outgoing messages.
+  - Tab visibility gate: `document.visibilityState === "visible"` check and window `focus` listeners ensure messages are only marked as read when genuinely visible.
+  - REST fallback endpoints: `POST /api/chat/conversations/:id/delivered` and `PATCH /api/chat/conversations/:id/read`.
+- **Multi-Tab Presence & Reconnection Recovery**:
+  - In-memory tenant-scoped presence tracking (`onlineUsers` Map) with zero per-heartbeat database write overhead; user goes offline only when all open tabs close.
+  - Sockets automatically re-join active conversation rooms on reconnection and re-sync unread messages silently.
+  - Clean organization room eviction: `join_org` evicts previous `org_*` and `chat_conv_*` rooms, supported by frontend `leave_org` dispatch.
+- **Strict Production CORS Hardening**:
+  - Centralized origin validator (`backend/utils/cors.js`) shared across Express REST API and Socket.IO.
+  - Whitelists exact production domains (`https://revflux.deepaksinghdev.in`) and scoped Vercel previews (`/^https:\/\/revflux(-[a-z0-9-]+)?\.vercel\.app$/`).
+  - Blocks loopback/localhost origins in production mode.
+- **CSV Lead Import Quota Enforcement**:
+  - Attached `checkLeadLimit` middleware to `POST /api/leads/import` and `/bulk`.
+  - Upfront pre-write quota calculation rejects excess imports with HTTP 402 with 0 database writes.
+  - Quota calculations filter out soft-deleted leads (`isDeleted: { $ne: true }`).
+  - Unlimited plans (`plan === "business"` or `leadLimit >= 999999`) bypass lead limits.
+- **Verification**:
+  - **148/148 backend tests passing** across 9 test suites (`lead_import_cors`, `chat`, `security`, `email`, `member_id`, `session`, `rbac`, `rbac_matrix`, `auth`).
+  - Frontend production build (`npm run build`) passing cleanly in 52s with 0 errors.
+  - Verified commit: `a713f986e3f185a717eeed1a81dcbd3e5374db52` on `rc/v1.1.0-presence-receipts`.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -302,6 +303,7 @@ function BillingCard({ user, activeOrg }) {
 
 /* ── 3. Workspace & Data Management Card ───────────────────────── */
 function WorkspaceCard() {
+  const navigate = useNavigate();
   const [seeding, setSeeding] = useState(false);
 
   const handleSeedDemo = async () => {
@@ -389,6 +391,16 @@ function WorkspaceCard() {
           </div>
           <Button variant="ghost" size="xs" className="text-brand-600 font-semibold" onClick={handleExportData}>
             <Download className="h-3.5 w-3.5 mr-1" /> Export JSON
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
+          <div>
+            <p className="text-xs font-bold text-ink">Trash & Data Recovery</p>
+            <p className="text-[11px] text-ink-soft">View and restore soft-deleted leads, contacts, tasks, and notes within 30 days.</p>
+          </div>
+          <Button variant="outline" size="xs" onClick={() => navigate("/trash")}>
+            Open Trash
           </Button>
         </div>
       </CardContent>

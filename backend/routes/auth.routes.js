@@ -1,3 +1,11 @@
+import {
+  startMicrosoftAuth,
+  handleMicrosoftCallback,
+  exchangeMicrosoftCode,
+  linkMicrosoftAccount,
+  requestLinkingOtp,
+  getMicrosoftClientConfig,
+} from "../controllers/microsoftAuth.controller.js";
 import { Router } from "express";
 
 import {
@@ -25,6 +33,14 @@ const router = Router();
 router.post("/register", authRateLimiter, validateBody(authSchemas.register), register);
 router.post("/login", authRateLimiter, validateBody(authSchemas.login), login);
 router.post("/google", authRateLimiter, googleLogin);
+
+// Microsoft Entra ID (OIDC) Authentication & Account Linking
+router.get("/microsoft", authRateLimiter, startMicrosoftAuth);
+router.get("/microsoft/callback", handleMicrosoftCallback);
+router.post("/microsoft/exchange", authRateLimiter, exchangeMicrosoftCode);
+router.post("/microsoft/link", authRateLimiter, linkMicrosoftAccount);
+router.post("/microsoft/link/request-otp", otpRequestLimiter, requestLinkingOtp);
+router.get("/microsoft/config", getMicrosoftClientConfig);
 
 router.post("/otp/request", otpRequestLimiter, requestOtp);
 router.post("/otp/verify", otpVerifyLimiter, verifyOtp);
