@@ -33,6 +33,7 @@ const NAV = [
   { to: "/outreach", label: "AI Outreach", icon: Mail, permission: "outreach.manage" },
   { to: "/team", label: "Team & Roles", icon: ShieldCheck, permission: "team.read" },
   { to: "/trash", label: "Trash", icon: Trash2 },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ onNavigate }) {
@@ -115,10 +116,9 @@ export function Sidebar({ onNavigate }) {
       </div>
 
       <Dialog open={profileModalOpen} onClose={() => setProfileModalOpen(false)} title="Workspace Options">
-        <div className="space-y-6">
-          
+        <div className="space-y-5">
           {/* Workspace Switcher */}
-          {user?.workspaces && user.workspaces.length > 1 && (
+          {user?.workspaces && user.workspaces.length > 1 ? (
             <div>
               <h4 className="mb-2 text-sm font-semibold text-ink">Switch Workspace</h4>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
@@ -130,7 +130,7 @@ export function Sidebar({ onNavigate }) {
                       setProfileModalOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition text-sm",
+                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition text-sm cursor-pointer",
                       activeOrg?.id === org.id 
                         ? "bg-brand-50 border border-brand-200 text-brand-800" 
                         : "bg-surface hover:bg-surface-muted text-ink border border-line"
@@ -147,30 +147,21 @@ export function Sidebar({ onNavigate }) {
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="rounded-xl border border-line bg-surface-muted/40 p-3 text-xs text-ink-soft space-y-1">
+              <p className="font-semibold text-ink">{activeOrg?.name || "Workspace"}</p>
+              <p>Active workspace identity. Additional workspaces will appear here once invited or created.</p>
+            </div>
           )}
 
-          <div className="border-t border-line pt-4">
-            <h4 className="mb-3 text-sm font-semibold text-ink">Settings</h4>
-            <div className="space-y-2">
-              <NavLink
-                to="/settings"
-                onClick={() => {
-                  setProfileModalOpen(false);
-                  onNavigate?.();
-                }}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-brand-50 hover:text-brand-700"
-              >
-                <Settings className="h-[18px] w-[18px]" />
-                Workspace Settings
-              </NavLink>
-              <button
-                onClick={logout}
-                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-rose-50 hover:text-rose-600"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                Log out
-              </button>
-            </div>
+          <div className="border-t border-line pt-3">
+            <button
+              onClick={logout}
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+            >
+              <LogOut className="h-[18px] w-[18px]" />
+              Log out
+            </button>
           </div>
         </div>
       </Dialog>

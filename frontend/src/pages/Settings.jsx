@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -24,7 +24,19 @@ import {
   UserCheck,
   Copy,
   Settings as SettingsIcon,
+  Database,
+  Trash2,
+  ExternalLink,
+  ChevronRight,
+  ArrowRight,
+  SlidersHorizontal,
+  Compass,
+  Sliders,
+  Layers,
+  LogOut,
 } from "lucide-react";
+
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 
 import {
   Button,
@@ -61,7 +73,75 @@ function SectionIcon({ icon: Icon, className }) {
   );
 }
 
-/* ── 1. Rich Profile Card ─────────────────────────────────────── */
+/* ── Category & Group Definitions ─────────────────────────────── */
+const OVERVIEW_CATEGORY = {
+  id: "overview",
+  label: "Overview",
+  icon: SlidersHorizontal,
+  description: "Account summary, plan usage & quick shortcuts",
+};
+
+const PERSONAL_SETTINGS = [
+  {
+    id: "profile",
+    label: "My Profile",
+    icon: User,
+    description: "Full name, email, avatar, job title & signature",
+  },
+  {
+    id: "security",
+    label: "Security",
+    icon: Lock,
+    description: "Password updates, session revocation & logout",
+  },
+];
+
+const WORKSPACE_SETTINGS = [
+  {
+    id: "workspace",
+    label: "General & Workspace",
+    icon: Building,
+    description: "Company identity, member IDs & workspace info",
+  },
+  {
+    id: "team",
+    label: "Team & Permissions",
+    icon: Users,
+    description: "RBAC roles, assignments & capability matrix",
+  },
+  {
+    id: "billing",
+    label: "Billing & Plan",
+    icon: CreditCard,
+    description: "Subscription tier, lead quotas & Razorpay receipts",
+  },
+  {
+    id: "integrations",
+    label: "Integrations & AI",
+    icon: Sparkles,
+    description: "Gemini AI model engine & authentication providers",
+  },
+  {
+    id: "data",
+    label: "Data & Recovery",
+    icon: Database,
+    description: "Trash recovery, JSON backup export & demo pipeline",
+  },
+  {
+    id: "audit",
+    label: "Activity & Audit",
+    icon: Activity,
+    description: "Live workspace mutation audit trail & event stream",
+  },
+];
+
+const SETTINGS_CATEGORIES = [
+  OVERVIEW_CATEGORY,
+  ...PERSONAL_SETTINGS,
+  ...WORKSPACE_SETTINGS,
+];
+
+/* ── 1. My Profile Card ───────────────────────────────────────── */
 function ProfileCard({ user, updateUser, activeOrg }) {
   const {
     register,
@@ -192,7 +272,7 @@ function ProfileCard({ user, updateUser, activeOrg }) {
               <div className="relative">
                 <FileText className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-ink-soft/50" />
                 <textarea
-                  rows={2}
+                  rows={3}
                   className="w-full rounded-2xl border border-line bg-surface p-3 pl-9 text-xs text-ink placeholder:text-ink-soft/60 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                   placeholder="Best regards, Deepak Singh | RevFlux Sales Team"
                   {...register("signature")}
@@ -212,7 +292,84 @@ function ProfileCard({ user, updateUser, activeOrg }) {
   );
 }
 
-/* ── 2. Billing & Subscription Card ────────────────────────────── */
+/* ── 2. Workspace Identity Card ───────────────────────────────── */
+function WorkspaceIdentityCard({ user, activeOrg }) {
+  const navigate = useNavigate();
+
+  return (
+    <Card className="shadow-xs">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <SectionIcon icon={Building} />
+          <div>
+            <CardTitle>Workspace Identity & Details</CardTitle>
+            <CardDescription>Primary workspace configuration, identifiers, and organization overview.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-4 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-line bg-surface-muted/40 p-4 space-y-1">
+            <span className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">Workspace Name</span>
+            <p className="font-display text-base font-bold text-ink">{activeOrg?.name || "RevFlux Workspace"}</p>
+            <p className="text-xs text-ink-soft">Active multi-tenant organization</p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-muted/40 p-4 space-y-1">
+            <span className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">Your Assigned Member ID</span>
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="font-mono text-sm font-bold text-brand-700 bg-brand-50 border border-brand-200/60 rounded px-2 py-0.5">
+                {activeOrg?.memberId || "MEMBER"}
+              </span>
+              {activeOrg?.memberId && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(activeOrg.memberId);
+                    toast.success(`Copied ${activeOrg.memberId} to clipboard`);
+                  }}
+                >
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-ink-soft">Used for direct attribution and chat mentions</p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-muted/40 p-4 space-y-1">
+            <span className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">Account Role</span>
+            <div className="flex items-center gap-2">
+              <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase font-bold text-[10px]">
+                {activeOrg?.role || "Member"}
+              </Badge>
+              <span className="text-xs text-ink-soft capitalize">Active access level</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-muted/40 p-4 space-y-1">
+            <span className="text-[11px] font-semibold text-ink-soft uppercase tracking-wider">Member Since</span>
+            <p className="text-sm font-semibold text-ink">{shortDate(user?.createdAt)}</p>
+            <p className="text-xs text-ink-soft">Workspace joining timestamp</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-line/60 bg-surface p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-ink">Manage Workspace Team</p>
+            <p className="text-[11px] text-ink-soft">Invite members, manage assigned roles, and view active collaborators.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate("/team")}>
+            <Users className="h-4 w-4 mr-1.5 text-brand-600" /> Open Team Page
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── 3. Billing & Subscription Card ────────────────────────────── */
 function BillingCard({ user, activeOrg }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [leadCount, setLeadCount] = useState(0);
@@ -301,8 +458,8 @@ function BillingCard({ user, activeOrg }) {
   );
 }
 
-/* ── 3. Workspace & Data Management Card ───────────────────────── */
-function WorkspaceCard() {
+/* ── 4. Data & Recovery Management Card ───────────────────────── */
+function DataManagementCard() {
   const navigate = useNavigate();
   const [seeding, setSeeding] = useState(false);
 
@@ -342,34 +499,34 @@ function WorkspaceCard() {
     <Card className="shadow-xs">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <SectionIcon icon={Sparkles} />
+          <SectionIcon icon={Database} />
           <div>
-            <CardTitle>Workspace & Data Reset</CardTitle>
-            <CardDescription>Re-run onboarding wizard, seed sandbox deals, or export full backups.</CardDescription>
+            <CardTitle>Data Management & Recovery</CardTitle>
+            <CardDescription>Trash recovery, sandbox deal seeding, backups, and setup guides.</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-brand-200/60 bg-brand-50/20 p-3.5">
           <div>
-            <p className="text-xs font-bold text-ink">Guided Onboarding Wizard</p>
-            <p className="text-[11px] text-ink-soft">Re-run the 3-step setup wizard to configure your company profile.</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-ink">Universal Trash & Data Recovery</p>
+              <Badge className="bg-brand-100 text-brand-800 text-[9px] uppercase font-bold">30-Day Retention</Badge>
+            </div>
+            <p className="text-[11px] text-ink-soft mt-0.5">View and restore soft-deleted leads, contacts, tasks, and notes.</p>
           </div>
-          <Button variant="outline" size="xs" onClick={() => (window.location.href = "/onboarding")}>
-            Run Onboarding
+          <Button variant="outline" size="xs" onClick={() => navigate("/trash")} className="border-brand-300 text-brand-700 hover:bg-brand-50">
+            <Trash2 className="h-3.5 w-3.5 mr-1 text-brand-600" /> Open Trash
           </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
           <div>
-            <p className="text-xs font-bold text-ink">Interactive Product Tour</p>
-            <p className="text-[11px] text-ink-soft">Re-run the dashboard product tour guide.</p>
+            <p className="text-xs font-bold text-ink">Export Workspace Backup</p>
+            <p className="text-[11px] text-ink-soft">Download complete lead pipeline dataset as structured JSON backup.</p>
           </div>
-          <Button variant="outline" size="xs" onClick={() => {
-            localStorage.setItem("revflux_run_tour", "true");
-            window.location.href = "/";
-          }}>
-            Run Tour
+          <Button variant="ghost" size="xs" className="text-brand-600 font-semibold" onClick={handleExportData}>
+            <Download className="h-3.5 w-3.5 mr-1" /> Export JSON
           </Button>
         </div>
 
@@ -386,21 +543,28 @@ function WorkspaceCard() {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
           <div>
-            <p className="text-xs font-bold text-ink">Export Workspace Backup</p>
-            <p className="text-[11px] text-ink-soft">Download complete lead pipeline dataset as structured JSON backup.</p>
+            <p className="text-xs font-bold text-ink">Guided Onboarding Wizard</p>
+            <p className="text-[11px] text-ink-soft">Re-run the 3-step setup wizard to configure your company profile.</p>
           </div>
-          <Button variant="ghost" size="xs" className="text-brand-600 font-semibold" onClick={handleExportData}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Export JSON
+          <Button variant="outline" size="xs" onClick={() => (window.location.href = "/onboarding")}>
+            Run Onboarding
           </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/50 p-3.5">
           <div>
-            <p className="text-xs font-bold text-ink">Trash & Data Recovery</p>
-            <p className="text-[11px] text-ink-soft">View and restore soft-deleted leads, contacts, tasks, and notes within 30 days.</p>
+            <p className="text-xs font-bold text-ink">Interactive Product Tour</p>
+            <p className="text-[11px] text-ink-soft">Re-run the dashboard product tour guide.</p>
           </div>
-          <Button variant="outline" size="xs" onClick={() => navigate("/trash")}>
-            Open Trash
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              localStorage.setItem("revflux_run_tour", "true");
+              window.location.href = "/";
+            }}
+          >
+            Run Tour
           </Button>
         </div>
       </CardContent>
@@ -408,8 +572,8 @@ function WorkspaceCard() {
   );
 }
 
-/* ── 4. Security & Password Card ───────────────────────────────── */
-function SecurityCard() {
+/* ── 5. Security & Password Card ───────────────────────────────── */
+function SecurityCard({ onOpenLogout }) {
   const [revoking, setRevoking] = useState(false);
   const {
     register,
@@ -517,9 +681,29 @@ function SecurityCard() {
             size="sm"
             loading={revoking}
             onClick={handleRevokeSessions}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 cursor-pointer"
           >
             Revoke All Other Sessions
+          </Button>
+        </div>
+
+        {/* Current Device Session Sign Out */}
+        <div className="pt-4 border-t border-line flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-ink">Account Session</p>
+            <p className="text-[11px] text-ink-soft">
+              Sign out of your active RevFlux session on this device.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenLogout}
+            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5 mr-1.5" />
+            Log Out
           </Button>
         </div>
       </CardContent>
@@ -527,8 +711,9 @@ function SecurityCard() {
   );
 }
 
-/* ── 5. RBAC & Multi-Role Permissions Management Panel ────────── */
+/* ── 6. RBAC & Multi-Role Permissions Management Panel ────────── */
 function RbacPermissionsCard({ user, activeOrg }) {
+  const navigate = useNavigate();
   const currentRole = activeOrg?.role || "rep";
 
   const canonicalRolesConfig = [
@@ -574,15 +759,22 @@ function RbacPermissionsCard({ user, activeOrg }) {
   return (
     <Card className="shadow-xs border-brand-200/50 bg-gradient-to-br from-surface to-brand-50/20">
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <SectionIcon icon={Users} className="bg-brand-100 text-brand-800" />
-          <div>
-            <div className="flex items-center gap-2">
-              <CardTitle>RBAC & Workspace Permissions</CardTitle>
-              <Badge className="bg-brand-600 text-white text-[9px] uppercase font-bold">Role-Based Access Control</Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <SectionIcon icon={Users} className="bg-brand-100 text-brand-800" />
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle>RBAC & Workspace Permissions</CardTitle>
+                <Badge className="bg-brand-600 text-white text-[9px] uppercase font-bold">Role-Based Access Control</Badge>
+              </div>
+              <CardDescription>Active workspace role assignment and granted capability matrix.</CardDescription>
             </div>
-            <CardDescription>Active workspace role assignment and granted capability matrix.</CardDescription>
           </div>
+          {["owner", "admin"].includes(currentRole) && (
+            <Button size="xs" variant="outline" onClick={() => navigate("/team")}>
+              <Users className="h-3.5 w-3.5 mr-1 text-brand-600" /> Manage Team
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -615,8 +807,8 @@ function RbacPermissionsCard({ user, activeOrg }) {
   );
 }
 
-/* ── 6. AI Integration Side Widget ─────────────────────────────── */
-function AiStatusWidget() {
+/* ── 7. Integrations & AI Engine Card ─────────────────────────── */
+function IntegrationsCard({ user }) {
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
@@ -627,51 +819,128 @@ function AiStatusWidget() {
   }, []);
 
   return (
-    <Card className="shadow-xs">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <SectionIcon icon={Sparkles} />
-          <div>
-            <CardTitle>AI Engine & Model Hub</CardTitle>
-            <CardDescription>Google Gemini integration status.</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-3 space-y-3">
-        {status === null ? (
-          <div className="flex items-center gap-3 py-2 text-xs text-ink-soft">
-            <Spinner size="sm" /> Checking Gemini status…
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted/50 p-3">
-              <div className="flex items-center gap-2">
-                {status.configured ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-semibold text-[10px]">
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
-                  </Badge>
-                ) : (
-                  <Badge className="bg-amber-50 text-amber-700 border border-amber-200/60 text-[10px]">
-                    Not Configured
-                  </Badge>
-                )}
-              </div>
-              <span className="font-mono text-[11px] font-semibold text-ink">
-                {status.model || "gemini-2.5-flash"}
-              </span>
+    <div className="space-y-6">
+      {/* Gemini AI Widget */}
+      <Card className="shadow-xs">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <SectionIcon icon={Sparkles} />
+            <div>
+              <CardTitle>AI Engine & Model Hub</CardTitle>
+              <CardDescription>Google Gemini integration status and AI features.</CardDescription>
             </div>
-            <p className="text-xs text-ink-soft leading-relaxed">
-              Powers automatic deal risk scoring, AI email drafting, and executive briefing summaries.
-            </p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent className="pt-3 space-y-4">
+          {status === null ? (
+            <div className="flex items-center gap-3 py-2 text-xs text-ink-soft">
+              <Spinner size="sm" /> Checking Gemini status…
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted/50 p-3">
+                <div className="flex items-center gap-2">
+                  {status.configured ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-semibold text-[10px]">
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200/60 text-[10px]">
+                      Not Configured
+                    </Badge>
+                  )}
+                </div>
+                <span className="font-mono text-[11px] font-semibold text-ink">
+                  {status.model || "gemini-2.5-flash"}
+                </span>
+              </div>
+              <p className="text-xs text-ink-soft leading-relaxed">
+                Powers automatic deal risk scoring, AI email drafting, and executive briefing summaries.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Identity Providers */}
+      <Card className="shadow-xs">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <SectionIcon icon={Shield} />
+            <div>
+              <CardTitle>Identity & Authentication Providers</CardTitle>
+              <CardDescription>Connected sign-in methods and SSO federation.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-3 space-y-3">
+          {/* Microsoft OIDC */}
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted/40 p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center font-bold text-blue-700 text-xs">
+                MS
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink">Microsoft Entra ID (OIDC)</p>
+                <p className="text-[11px] text-ink-soft">
+                  {user?.microsoftId ? (
+                    <span className="font-mono text-[10px] text-emerald-700">Linked: {user.microsoftId}</span>
+                  ) : (
+                    "Available for work, school, and personal accounts"
+                  )}
+                </p>
+              </div>
+            </div>
+            {user?.microsoftId ? (
+              <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-semibold">
+                <CheckCircle2 className="h-3 w-3 mr-1" /> Linked
+              </Badge>
+            ) : (
+              <Badge className="bg-slate-100 text-slate-600 text-[10px]">
+                Ready to Sign In
+              </Badge>
+            )}
+          </div>
+
+          {/* Google OAuth */}
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted/40 p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center font-bold text-red-600 text-xs">
+                G
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink">Google Workspace OAuth</p>
+                <p className="text-[11px] text-ink-soft">Direct Google sign-in and account authentication</p>
+              </div>
+            </div>
+            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-semibold">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Active
+            </Badge>
+          </div>
+
+          {/* Email OTP */}
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface-muted/40 p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center font-bold text-emerald-700 text-xs">
+                <Mail className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink">Passwordless Email OTP</p>
+                <p className="text-[11px] text-ink-soft">Secure one-time passcode verification via Resend</p>
+              </div>
+            </div>
+            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-semibold">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Active
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-/* ── 7. System Health & Security Audit Stream ─────────────────── */
-function AuditStreamCard({ user, logout, activeOrg }) {
+/* ── 8. System Health & Security Audit Stream ─────────────────── */
+function AuditStreamCard({ user, onOpenLogout, activeOrg }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -808,7 +1077,7 @@ function AuditStreamCard({ user, logout, activeOrg }) {
           <span className="text-xs text-ink-soft">
             Member since: <strong className="text-ink">{shortDate(user?.createdAt)}</strong>
           </span>
-          <Button variant="danger" size="sm" onClick={logout}>
+          <Button variant="danger" size="sm" onClick={onOpenLogout}>
             Log Out Session
           </Button>
         </div>
@@ -817,51 +1086,537 @@ function AuditStreamCard({ user, logout, activeOrg }) {
   );
 }
 
+/* ── 9. Settings Overview Landing View ────────────────────────── */
+function SettingsOverview({ user, activeOrg, onSelectTab, onOpenLogout }) {
+  const [leadCount, setLeadCount] = useState(0);
+
+  useEffect(() => {
+    leadsApi
+      .list({ limit: 1 })
+      .then((res) => {
+        setLeadCount(res?.count ?? (Array.isArray(res?.leads) ? res.leads.length : 0));
+      })
+      .catch(() => {});
+  }, [activeOrg?.id]);
+
+  const plan = activeOrg?.plan || "free";
+  const limit = activeOrg?.leadLimit || (plan === "free" ? 50 : plan === "growth" ? 500 : 10000);
+  const usagePct = Math.min(100, Math.round((leadCount / limit) * 100));
+
+  return (
+    <div className="space-y-6">
+      {/* Overview Identity Banner */}
+      <Card className="p-5 shadow-xs border-brand-200/50 bg-gradient-to-br from-surface via-surface to-brand-50/20">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <Avatar name={user?.name} src={user?.avatar} size="lg" className="ring-2 ring-brand-500/20 shrink-0" />
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg font-bold text-ink">{user?.name}</h3>
+                <Badge className="bg-brand-50 text-brand-700 font-bold uppercase text-[10px]">
+                  {activeOrg?.role || "Member"}
+                </Badge>
+                <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-semibold text-[10px]">
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Account Verified
+                </Badge>
+              </div>
+              <p className="text-xs text-ink-soft">{user?.email}</p>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-soft pt-0.5">
+                <span className="font-semibold text-ink">{activeOrg?.name || "Workspace"}</span>
+                {activeOrg?.memberId && (
+                  <>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(activeOrg.memberId);
+                        toast.success(`Copied ${activeOrg.memberId} to clipboard`);
+                      }}
+                      className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/60 rounded px-1.5 py-0.5 transition-colors cursor-pointer"
+                      title="Click to copy Member ID"
+                    >
+                      <span>{activeOrg.memberId}</span>
+                      <Copy className="h-2.5 w-2.5 opacity-60" />
+                    </button>
+                  </>
+                )}
+                <span>•</span>
+                <span>Joined {shortDate(user?.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onSelectTab("profile")}
+            className="shrink-0"
+          >
+            <User className="h-3.5 w-3.5 mr-1.5 text-brand-600" /> Edit Profile
+          </Button>
+        </div>
+      </Card>
+
+      {/* 3 Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Subscription & Quota Card */}
+        <div
+          onClick={() => onSelectTab("billing")}
+          className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2.5 cursor-pointer hover:border-brand-300 hover:shadow-sm transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-ink-soft">Subscription Plan</span>
+            <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 capitalize font-bold text-[10px]">
+              {plan}
+            </Badge>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px] font-medium text-ink-soft">
+              <span>Lead Quota</span>
+              <span>{leadCount} / {limit >= 10000 ? "∞" : limit} ({usagePct}%)</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-surface-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  usagePct >= 90 ? "bg-red-500" : usagePct >= 75 ? "bg-amber-500" : "bg-brand-600"
+                }`}
+                style={{ width: `${usagePct}%` }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center text-[11px] font-semibold text-brand-600 group-hover:text-brand-700 pt-0.5">
+            <span>Manage billing</span>
+            <ChevronRight className="h-3 w-3 ml-0.5" />
+          </div>
+        </div>
+
+        {/* Access & Role Card */}
+        <div
+          onClick={() => onSelectTab("team")}
+          className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2.5 cursor-pointer hover:border-brand-300 hover:shadow-sm transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-ink-soft">Access Level</span>
+            <Badge className="bg-purple-50 text-purple-700 border border-purple-200/60 capitalize font-bold text-[10px]">
+              {activeOrg?.role || "Member"}
+            </Badge>
+          </div>
+          <p className="text-xs text-ink-soft line-clamp-2">
+            Multi-role RBAC capability matrix and assigned workspace permissions.
+          </p>
+          <div className="flex items-center text-[11px] font-semibold text-brand-600 group-hover:text-brand-700 pt-0.5">
+            <span>View permissions</span>
+            <ChevronRight className="h-3 w-3 ml-0.5" />
+          </div>
+        </div>
+
+        {/* Security & Credentials Card */}
+        <div
+          onClick={() => onSelectTab("security")}
+          className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2.5 cursor-pointer hover:border-brand-300 hover:shadow-sm transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-ink-soft">Account Security</span>
+            <span className="text-[10px] text-emerald-700 font-semibold flex items-center">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Protected
+            </span>
+          </div>
+          <p className="text-xs text-ink-soft line-clamp-2">
+            Password updates, session revocation, and security tokens.
+          </p>
+          <div className="flex items-center text-[11px] font-semibold text-brand-600 group-hover:text-brand-700 pt-0.5">
+            <span>Security settings</span>
+            <ChevronRight className="h-3 w-3 ml-0.5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Grouped Quick Shortcuts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        {/* Workspace Operations Quick Hub */}
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 border border-brand-200/50 text-brand-700">
+              <Building className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="font-display text-sm font-bold text-ink">Workspace Operations</h4>
+              <p className="text-xs text-ink-soft">Organization administration, team access, and data recovery</p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-line/60">
+            <button
+              type="button"
+              onClick={() => onSelectTab("workspace")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
+                <span>General Workspace Identity & Member IDs</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab("team")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                <span>Team Roles & RBAC Matrix</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab("data")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Trash Recovery & Data Exports</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab("integrations")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                <span>Gemini AI Engine & OIDC Providers</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab("audit")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                <span>Audit Trail & Event Log</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+          </div>
+        </div>
+
+        {/* Personal Account Quick Hub */}
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 border border-purple-200/50 text-purple-700">
+              <User className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="font-display text-sm font-bold text-ink">Personal Account</h4>
+              <p className="text-xs text-ink-soft">Your credentials, identity, and session security</p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-line/60">
+            <button
+              type="button"
+              onClick={() => onSelectTab("profile")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
+                <span>Profile, Job Title & Signature</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab("security")}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-ink hover:text-brand-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Password & Active Session Protection</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-ink-soft group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenLogout}
+              className="w-full flex items-center justify-between py-2.5 text-left text-xs font-medium text-rose-600 hover:text-rose-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span>End Active Session (Log Out)</span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 text-rose-400 group-hover:text-rose-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page Root Component ────────────────────────────────────────── */
 export default function Settings() {
   const { user, activeOrg, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      logout();
+      toast.success("Logged out successfully");
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setIsLoggingOut(false);
+      toast.error(err?.message || "Failed to log out");
+    }
+  };
+
+  // Extract active tab from URL query params (default to "overview")
+  const activeTab = searchParams.get("tab") || "overview";
+
+  const handleSelectTab = (tabId) => {
+    if (tabId === "overview") {
+      setSearchParams({});
+    } else {
+      setSearchParams({ tab: tabId });
+    }
+  };
+
+  const currentCategory = useMemo(() => {
+    return SETTINGS_CATEGORIES.find((c) => c.id === activeTab) || SETTINGS_CATEGORIES[0];
+  }, [activeTab]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Page Header */}
       <PageHeader
         title="Workspace Administration & Settings"
-        subtitle="Configure profile identity, RBAC multi-role access controls, subscription billing, and security settings."
+        subtitle="Manage your profile, team permissions, subscription billing, security, and data recovery."
       />
 
-      {/* Quick Summary Pill Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-xs shadow-2xs">
-        <div className="flex items-center gap-1.5 font-semibold text-ink">
-          <SettingsIcon className="h-4 w-4 text-brand-600" /> Workspace Status:
+      {/* Main Settings Layout: Sidebar Nav + Content Panel */}
+      <div className="flex flex-col md:flex-row items-start gap-6">
+        {/* Desktop Persistent Category Navigation */}
+        <aside className="hidden md:block w-64 shrink-0 rounded-2xl border border-line bg-surface p-2 shadow-xs">
+          {/* Overview Button */}
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => handleSelectTab("overview")}
+              className={cn(
+                "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                activeTab === "overview"
+                  ? "bg-brand-50 text-brand-700 font-bold border border-brand-200/60 shadow-2xs"
+                  : "text-ink-soft hover:bg-surface-muted hover:text-ink"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <SlidersHorizontal className={cn("h-4 w-4", activeTab === "overview" ? "text-brand-700" : "text-ink-soft/70")} />
+                <span>Overview</span>
+              </div>
+              {activeTab === "overview" && <div className="h-1.5 w-1.5 rounded-full bg-brand-600" />}
+            </button>
+          </div>
+
+          {/* Group 1: Personal Settings */}
+          <div className="pt-2 border-t border-line/60">
+            <div className="px-3 py-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ink-soft/80">
+                Personal Settings
+              </span>
+            </div>
+            <nav className="space-y-0.5">
+              {PERSONAL_SETTINGS.map((cat) => {
+                const Icon = cat.icon;
+                const isActive = activeTab === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handleSelectTab(cat.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                      isActive
+                        ? "bg-brand-50 text-brand-700 font-bold border border-brand-200/60 shadow-2xs"
+                        : "text-ink-soft hover:bg-surface-muted hover:text-ink"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={cn("h-4 w-4", isActive ? "text-brand-700" : "text-ink-soft/70")} />
+                      <span>{cat.label}</span>
+                    </div>
+                    {isActive && <div className="h-1.5 w-1.5 rounded-full bg-brand-600" />}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Group 2: Workspace Settings */}
+          <div className="mt-3 pt-2 border-t border-line/60">
+            <div className="px-3 py-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ink-soft/80">
+                Workspace Settings
+              </span>
+            </div>
+            <nav className="space-y-0.5">
+              {WORKSPACE_SETTINGS.map((cat) => {
+                const Icon = cat.icon;
+                const isActive = activeTab === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handleSelectTab(cat.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                      isActive
+                        ? "bg-brand-50 text-brand-700 font-bold border border-brand-200/60 shadow-2xs"
+                        : "text-ink-soft hover:bg-surface-muted hover:text-ink"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={cn("h-4 w-4", isActive ? "text-brand-700" : "text-ink-soft/70")} />
+                      <span>{cat.label}</span>
+                    </div>
+                    {isActive && <div className="h-1.5 w-1.5 rounded-full bg-brand-600" />}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Account Session Actions: Log Out */}
+          <div className="mt-3 pt-3 border-t border-line/60 px-1">
+            <button
+              type="button"
+              onClick={() => setLogoutModalOpen(true)}
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            >
+              <LogOut className="h-4 w-4 text-rose-600" />
+              <span>Log out</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Mobile Horizontal Scrollable Tab Bar */}
+        <div className="md:hidden w-full overflow-x-auto no-scrollbar flex items-center gap-1.5 p-1.5 rounded-2xl border border-line bg-surface shadow-xs">
+          {SETTINGS_CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = activeTab === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleSelectTab(cat.id)}
+                className={cn(
+                  "flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                  isActive
+                    ? "bg-brand-50 text-brand-700 font-bold border border-brand-200/60"
+                    : "text-ink-soft hover:bg-surface-muted hover:text-ink"
+                )}
+              >
+                <Icon className={cn("h-3.5 w-3.5", isActive ? "text-brand-700" : "text-ink-soft")} />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
-        <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 uppercase font-bold text-[10px]">
-          Role: {activeOrg?.role || "Member"}
-        </Badge>
-        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase font-bold text-[10px]">
-          Plan: {activeOrg?.plan || "Free"}
-        </Badge>
-        <Badge className="bg-purple-50 text-purple-700 border border-purple-200/60 font-semibold text-[10px]">
-          {activeOrg?.name || "Workspace"}
-        </Badge>
+
+        {/* Category Content Area */}
+        <main className="flex-1 w-full min-w-0 space-y-6">
+          {/* Breadcrumb Header when inside a category */}
+          {activeTab !== "overview" && (
+            <div className="flex items-center justify-between pb-2 border-b border-line">
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab("overview")}
+                  className="text-brand-600 hover:text-brand-700 font-semibold cursor-pointer"
+                >
+                  Settings
+                </button>
+                <span className="text-ink-soft/60">/</span>
+                <span className="font-bold text-ink">{currentCategory.label}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => handleSelectTab("overview")}
+                className="text-ink-soft hover:text-ink"
+              >
+                ← Back to Overview
+              </Button>
+            </div>
+          )}
+
+          {/* Active Category Panel */}
+          {activeTab === "overview" && (
+            <SettingsOverview
+              user={user}
+              activeOrg={activeOrg}
+              onSelectTab={handleSelectTab}
+              onOpenLogout={() => setLogoutModalOpen(true)}
+            />
+          )}
+
+          {activeTab === "profile" && (
+            <ProfileCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
+          )}
+
+          {activeTab === "workspace" && (
+            <WorkspaceIdentityCard user={user} activeOrg={activeOrg} />
+          )}
+
+          {activeTab === "team" && (
+            <RbacPermissionsCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
+          )}
+
+          {activeTab === "billing" && (
+            <BillingCard user={user} activeOrg={activeOrg} />
+          )}
+
+          {activeTab === "security" && (
+            <SecurityCard onOpenLogout={() => setLogoutModalOpen(true)} />
+          )}
+
+          {activeTab === "integrations" && (
+            <IntegrationsCard user={user} />
+          )}
+
+          {activeTab === "data" && (
+            <DataManagementCard />
+          )}
+
+          {activeTab === "audit" && (
+            <AuditStreamCard user={user} onOpenLogout={() => setLogoutModalOpen(true)} activeOrg={activeOrg} />
+          )}
+        </main>
       </div>
 
-      {/* 2-Column Responsive Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left / Main Column (7 Cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          <ProfileCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
-          <BillingCard user={user} activeOrg={activeOrg} />
-          <WorkspaceCard />
-          <SecurityCard />
-        </div>
-
-        {/* Right / Sidebar Column (5 Cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <RbacPermissionsCard user={user} updateUser={updateUser} activeOrg={activeOrg} />
-          <AiStatusWidget />
-          <AuditStreamCard user={user} logout={logout} activeOrg={activeOrg} />
-        </div>
-      </div>
+      {/* Confirmation Dialog for Session Logout */}
+      <ConfirmDialog
+        open={logoutModalOpen}
+        onClose={() => !isLoggingOut && setLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+        title="Log out of RevFlux?"
+        description="Are you sure you want to end your current session on this device?"
+        confirmLabel="Log out"
+        loading={isLoggingOut}
+      />
     </div>
   );
 }

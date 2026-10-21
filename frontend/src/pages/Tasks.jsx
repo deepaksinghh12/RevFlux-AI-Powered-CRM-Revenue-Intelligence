@@ -41,6 +41,7 @@ import {
   DropdownItem,
   Tabs,
   Spinner,
+  Skeleton,
 } from "../components/ui";
 
 import { CalendarView } from "../components/calendar/CalendarView";
@@ -507,12 +508,24 @@ export default function Tasks() {
       </PageHeader>
 
       {/* KPI stat cards */}
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Total tasks"  value={stats.total}     icon={CalendarCheck} />
-        <StatCard label="Pending"      value={stats.pending}   icon={Circle} />
-        <StatCard label="Overdue"      value={stats.overdue}   icon={AlertTriangle} />
-        <StatCard label="Completed"    value={stats.completed} icon={CheckCircle2} accent />
-      </div>
+      {tasks === null ? (
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4" role="status" aria-label="Loading task metrics">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2">
+              <Skeleton className="h-3.5 w-20 rounded-md" />
+              <Skeleton className="h-7 w-16 rounded-lg" />
+              <Skeleton className="h-3 w-24 rounded-md" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <StatCard label="Total tasks"  value={stats.total}     icon={CalendarCheck} />
+          <StatCard label="Pending"      value={stats.pending}   icon={Circle} />
+          <StatCard label="Overdue"      value={stats.overdue}   icon={AlertTriangle} />
+          <StatCard label="Completed"    value={stats.completed} icon={CheckCircle2} accent />
+        </div>
+      )}
 
       {/* Completion progress bar */}
       {tasks !== null && (
@@ -528,8 +541,26 @@ export default function Tasks() {
 
           {/* Body */}
           {tasks === null ? (
-            <div className="flex items-center justify-center py-16">
-              <Spinner />
+            <div className="divide-y divide-line/60" role="status" aria-label="Loading tasks">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-4 px-6">
+                  <div className="flex items-center gap-3.5 flex-1">
+                    <Skeleton className="h-4 w-4 rounded-md shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton className="h-4 w-2/5 rounded-md" />
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-3 w-16 rounded-md" />
+                        <Skeleton className="h-3 w-2 rounded-full" />
+                        <Skeleton className="h-3 w-28 rounded-md" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState
