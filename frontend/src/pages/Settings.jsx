@@ -293,7 +293,7 @@ function ProfileCard({ user, updateUser, activeOrg }) {
 }
 
 /* ── 2. Workspace Identity Card ───────────────────────────────── */
-function WorkspaceIdentityCard({ user, activeOrg }) {
+function WorkspaceIdentityCard({ user, activeOrg, switchOrganization }) {
   const navigate = useNavigate();
 
   return (
@@ -354,6 +354,39 @@ function WorkspaceIdentityCard({ user, activeOrg }) {
             <p className="text-xs text-ink-soft">Workspace joining timestamp</p>
           </div>
         </div>
+
+        {/* Workspace Switcher (available when user belongs to multiple organizations) */}
+        {user?.workspaces && user.workspaces.length > 1 && (
+          <div className="rounded-2xl border border-line bg-surface-muted/30 p-4 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-ink">Switch Active Workspace</p>
+              <p className="text-[11px] text-ink-soft">Select another workspace associated with your account.</p>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {user.workspaces.map((org) => (
+                <button
+                  key={org.id}
+                  type="button"
+                  onClick={() => switchOrganization(org.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition text-xs cursor-pointer",
+                    activeOrg?.id === org.id
+                      ? "bg-brand-50 border border-brand-200 text-brand-800 font-semibold shadow-2xs"
+                      : "bg-surface hover:bg-surface-muted text-ink border border-line"
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700">
+                      {org.name.charAt(0)}
+                    </div>
+                    <span className="truncate">{org.name}</span>
+                  </div>
+                  {activeOrg?.id === org.id && <span className="text-[10px] font-medium text-brand-600">Active</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-line/60 bg-surface p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
@@ -1365,7 +1398,7 @@ function SettingsOverview({ user, activeOrg, onSelectTab, onOpenLogout }) {
 
 /* ── Page Root Component ────────────────────────────────────────── */
 export default function Settings() {
-  const { user, activeOrg, updateUser, logout } = useAuth();
+  const { user, activeOrg, updateUser, logout, switchOrganization } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -1534,6 +1567,14 @@ export default function Settings() {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setLogoutModalOpen(true)}
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 border border-rose-200/60 transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+          >
+            <LogOut className="h-3.5 w-3.5 text-rose-600" />
+            <span>Log out</span>
+          </button>
         </div>
 
         {/* Category Content Area */}
@@ -1578,7 +1619,7 @@ export default function Settings() {
           )}
 
           {activeTab === "workspace" && (
-            <WorkspaceIdentityCard user={user} activeOrg={activeOrg} />
+            <WorkspaceIdentityCard user={user} activeOrg={activeOrg} switchOrganization={switchOrganization} />
           )}
 
           {activeTab === "team" && (

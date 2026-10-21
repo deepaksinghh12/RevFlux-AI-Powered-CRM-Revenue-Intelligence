@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import {
   LayoutGrid,
@@ -11,7 +10,6 @@ import {
   ShieldCheck,
   Shield,
   Settings,
-  LogOut,
   Sparkles,
   MessageSquare,
   Trash2,
@@ -19,7 +17,6 @@ import {
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from "../../hooks/usePermission";
-import { Dialog } from "../ui/Dialog";
 
 /* Primary navigation — icon + label rail, matching the reference sidebar. */
 const NAV = [
@@ -37,9 +34,8 @@ const NAV = [
 ];
 
 export function Sidebar({ onNavigate }) {
-  const { user, activeOrg, switchOrganization, logout } = useAuth();
+  const { user, activeOrg } = useAuth();
   const { hasPermission } = usePermission();
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const visibleNav = NAV.filter((item) => !item.permission || hasPermission(item.permission));
 
@@ -94,12 +90,9 @@ export function Sidebar({ onNavigate }) {
         )}
       </nav>
 
-      {/* User Profile / Workspace */}
+      {/* User Profile / Workspace Identity Display */}
       <div className="border-t border-line p-3">
-        <button
-          onClick={() => setProfileModalOpen(true)}
-          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-surface-muted"
-        >
+        <div className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 text-sm font-bold uppercase shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
             {activeOrg?.name?.charAt(0) || "W"}
           </div>
@@ -112,59 +105,8 @@ export function Sidebar({ onNavigate }) {
               <span className="text-[10px] bg-brand-100 text-brand-700 px-1 rounded ml-1 font-bold uppercase tracking-wider">{activeOrg?.role || "member"}</span>
             </p>
           </div>
-        </button>
-      </div>
-
-      <Dialog open={profileModalOpen} onClose={() => setProfileModalOpen(false)} title="Workspace Options">
-        <div className="space-y-5">
-          {/* Workspace Switcher */}
-          {user?.workspaces && user.workspaces.length > 1 ? (
-            <div>
-              <h4 className="mb-2 text-sm font-semibold text-ink">Switch Workspace</h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                {user.workspaces.map((org) => (
-                  <button
-                    key={org.id}
-                    onClick={() => {
-                      switchOrganization(org.id);
-                      setProfileModalOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition text-sm cursor-pointer",
-                      activeOrg?.id === org.id 
-                        ? "bg-brand-50 border border-brand-200 text-brand-800" 
-                        : "bg-surface hover:bg-surface-muted text-ink border border-line"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700">
-                        {org.name.charAt(0)}
-                      </div>
-                      <span className="truncate">{org.name}</span>
-                    </div>
-                    {activeOrg?.id === org.id && <span className="text-xs font-medium text-brand-600">Active</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-line bg-surface-muted/40 p-3 text-xs text-ink-soft space-y-1">
-              <p className="font-semibold text-ink">{activeOrg?.name || "Workspace"}</p>
-              <p>Active workspace identity. Additional workspaces will appear here once invited or created.</p>
-            </div>
-          )}
-
-          <div className="border-t border-line pt-3">
-            <button
-              onClick={logout}
-              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
-            >
-              <LogOut className="h-[18px] w-[18px]" />
-              Log out
-            </button>
-          </div>
         </div>
-      </Dialog>
+      </div>
     </aside>
   );
 }
