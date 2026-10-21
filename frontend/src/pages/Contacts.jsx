@@ -35,6 +35,8 @@ import {
   Dropdown,
   DropdownItem,
   Spinner,
+  Skeleton,
+  SkeletonTable,
 } from "../components/ui";
 import { contactsApi } from "../lib/services";
 import { relative, shortDate } from "../lib/format";
@@ -245,32 +247,44 @@ export default function Contacts() {
       </PageHeader>
 
       {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          icon={Users}
-          tint="bg-brand-50 text-brand-600"
-          label="Total contacts"
-          value={kpis.total}
-        />
-        <StatTile
-          icon={Star}
-          tint="bg-amber-50 text-amber-500"
-          label="Favorites"
-          value={kpis.favorites}
-        />
-        <StatTile
-          icon={Building2}
-          tint="bg-sky-50 text-sky-600"
-          label="Companies"
-          value={kpis.companies}
-        />
-        <StatTile
-          icon={Tag}
-          tint="bg-violet-50 text-violet-600"
-          label="Tagged"
-          value={kpis.tagged}
-        />
-      </div>
+      {contacts === null ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" role="status" aria-label="Loading contact metrics">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2">
+              <Skeleton className="h-3.5 w-20 rounded-md" />
+              <Skeleton className="h-7 w-16 rounded-lg" />
+              <Skeleton className="h-3 w-28 rounded-md" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatTile
+            icon={Users}
+            tint="bg-brand-50 text-brand-600"
+            label="Total contacts"
+            value={kpis.total}
+          />
+          <StatTile
+            icon={Star}
+            tint="bg-amber-50 text-amber-500"
+            label="Favorites"
+            value={kpis.favorites}
+          />
+          <StatTile
+            icon={Building2}
+            tint="bg-sky-50 text-sky-600"
+            label="Companies"
+            value={kpis.companies}
+          />
+          <StatTile
+            icon={Tag}
+            tint="bg-violet-50 text-violet-600"
+            label="Tagged"
+            value={kpis.tagged}
+          />
+        </div>
+      )}
 
       {/* ── Toolbar Card ── */}
       <Card className="space-y-4 p-4">
@@ -328,9 +342,7 @@ export default function Contacts() {
 
       {/* ── Results — loading / empty / grid / table ── */}
       {contacts === null ? (
-        <div className="flex items-center justify-center py-20">
-          <Spinner />
-        </div>
+        <SkeletonTable rows={6} columns={5} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Contact2}

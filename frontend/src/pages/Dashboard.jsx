@@ -27,6 +27,7 @@ import {
   Avatar,
   Button
 } from "../components/ui";
+import { DashboardSkeleton } from "../components/skeletons";
 import { analyticsApi, tasksApi, teamApi } from "../lib/services";
 import { currency, shortDate } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
@@ -70,27 +71,7 @@ export default function Dashboard() {
   }, [role, canReadReports, canReadTeam]);
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-80" />
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-        </div>
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-          <div className="space-y-5 lg:col-span-8">
-            <Skeleton className="h-80 rounded-2xl" />
-            <Skeleton className="h-64 rounded-2xl" />
-          </div>
-          <div className="space-y-5 lg:col-span-4">
-            <Skeleton className="h-[340px] rounded-2xl" />
-            <Skeleton className="h-[340px] rounded-2xl" />
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const pipelineValue = stats.pipelineValue || 0;

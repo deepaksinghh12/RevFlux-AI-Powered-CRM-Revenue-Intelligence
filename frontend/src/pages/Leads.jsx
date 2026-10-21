@@ -37,6 +37,8 @@ import {
   Dropdown,
   DropdownItem,
   Spinner,
+  Skeleton,
+  SkeletonTable,
 } from "../components/ui";
 import { leadsApi } from "../lib/services";
 import { currency, relative } from "../lib/format";
@@ -293,27 +295,39 @@ export default function Leads() {
       </PageHeader>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile icon={Users} tint="bg-brand-50 text-brand-600" label="Total leads" value={kpis.count} />
-        <StatTile
-          icon={TrendingUp}
-          tint="bg-sky-50 text-sky-600"
-          label="Open pipeline"
-          value={currency(kpis.openValue, { compact: true })}
-        />
-        <StatTile
-          icon={Trophy}
-          tint="bg-emerald-50 text-emerald-600"
-          label="Won value"
-          value={currency(kpis.wonValue, { compact: true })}
-        />
-        <StatTile
-          icon={Coins}
-          tint="bg-violet-50 text-violet-600"
-          label="Avg deal size"
-          value={currency(kpis.avg, { compact: true })}
-        />
-      </div>
+      {leads === null ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" role="status" aria-label="Loading lead metrics">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-2">
+              <Skeleton className="h-3.5 w-20 rounded-md" />
+              <Skeleton className="h-7 w-24 rounded-lg" />
+              <Skeleton className="h-3 w-16 rounded-md" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatTile icon={Users} tint="bg-brand-50 text-brand-600" label="Total leads" value={kpis.count} />
+          <StatTile
+            icon={TrendingUp}
+            tint="bg-sky-50 text-sky-600"
+            label="Open pipeline"
+            value={currency(kpis.openValue, { compact: true })}
+          />
+          <StatTile
+            icon={Trophy}
+            tint="bg-emerald-50 text-emerald-600"
+            label="Won value"
+            value={currency(kpis.wonValue, { compact: true })}
+          />
+          <StatTile
+            icon={Coins}
+            tint="bg-violet-50 text-violet-600"
+            label="Avg deal size"
+            value={currency(kpis.avg, { compact: true })}
+          />
+        </div>
+      )}
 
       {/* Toolbar */}
       <Card className="space-y-4 p-4">
@@ -390,9 +404,7 @@ export default function Leads() {
 
       {/* Results — table or card grid */}
       {leads === null ? (
-        <Card>
-          <Spinner />
-        </Card>
+        <SkeletonTable rows={6} columns={6} />
       ) : sorted.length === 0 ? (
         <Card>
           <EmptyState
